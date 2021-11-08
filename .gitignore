@@ -1,0 +1,159 @@
+# Data and Papers are symlinks to Dropbox
+/data
+/scratch
+/papers
+
+/archive/pdf_archive
+/output/*.pdf
+/output/*_cache/
+/output/*_files/
+
+/notes/*.pdf
+
+pdfa.xmpi
+comment.cut
+
+/code/stan_models/*
+!/code/stan_models/*.stan
+
+/.snakemake
+/dask-worker-space/*
+*/dask-worker-space/*
+
+
+mydask.png
+
+.DS_Store
+Thumbs.db
+
+/code/*.ipynb
+
+
+/.conda
+
+/code/*.log
+/output/*.log
+
+# LaTeX endfloat output
+output/*.ttt
+output/*.fff
+
+# Created by https://www.gitignore.io/api/r,latex,linux,stata,python,dropbox,jupyternotebook
+
+### Dropbox ###
+# Dropbox settings and caches
+.dropbox
+.dropbox.attr
+.dropbox.cache
+
+### JupyterNotebook ###
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+### LaTeX ###
+## Core latex/pdflatex auxiliary files:
+*.aux
+*.lof
+*.lot
+*.fls
+*.out
+*.toc
+*.fmt
+*.fot
+*.cb
+*.cb2
+
+## Generated if empty string is given at "Please type another file name for output:"
+.pdf
+
+## Bibliography auxiliary files (bibtex/biblatex/biber):
+*.bbl
+*.bcf
+*.blg
+*-blx.aux
+*-blx.bib
+*.run.xml
+
+## Build tool auxiliary files:
+*.fdb_latexmk
+*.synctex
+*.synctex(busy)
+*.synctex.gz
+*.synctex.gz(busy)
+*.pdfsync
+*Notes.bib
+
+# beamer
+*.nav
+*.pre
+*.snm
+*.vrb
+
+# hyperref
+*.brf
+
+# knitr
+*-concordance.tex
+# TODO Comment the next line if you want to keep your tikz graphics files
+#*.tikz
+*-tikzDictionary
+
+# listings
+*.lol
+
+# makeidx
+*.idx
+*.ilg
+*.ind
+*.ist
+
+# minted
+_minted*
+*.pyg
+
+# sympy
+*.sout
+*.sympy
+sympy-plots-for-*.tex/
+
+
+### Linux ###
+*~
+
+# temporary files which can be created if a process still has a handle open of a deleted file
+.fuse_hidden*
+
+# Linux trash folder which might appear on any partition or disk
+.Trash-*
+
+# .nfs files are created when an open file is removed but is still being accessed
+.nfs*
+
+### Python ###
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+### R ###
+# History files
+.Rhistory
+.Rapp.history
+
+# Session Data files
+.RData
+
+# Example code in package build process
+*-Ex.R
+packrat/lib*/

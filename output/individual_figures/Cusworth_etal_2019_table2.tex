@@ -1,0 +1,40 @@
+\begin{threeparttable}
+ \caption{Estimated satellite detection varies by leak size and background}
+ \label{tab:satellite-detection-threshold}
+\begin{tabular}{l d d}
+\toprule
+\textcol{Surface type} &
+\textcol{True emissions (kg/hr)} &
+\textcol{Estimated emissions (kg/hr)} \\
+
+\midrule
+Grass  & 100 @ & \multicolumn{1}{r}{No detection}\\
+&&\\
+Grass  & 500 @ &  279@    \\
+       &       & (101@)   \\
+Grass  & 900 @ &  542@    \\
+       &       &  (38@)   \\
+% Urban  & 100 @ & 1080@    \\
+%        &       & (216@)   \\
+% Urban  & 500 @ &  964@    \\
+%        &       &  (198@)  \\
+% Urban  & 900 @ & 1060@    \\
+%        &       & (134@)   \\
+Bright & 100 @ &  93.@5   \\
+       &       & (18.@3)  \\
+Bright & 500 @ &  338@    \\
+       &       &  (83.@1) \\
+Bright & 900 @ &  577@    \\
+       &       & (115@)   \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\item \textsc{Note:} Table is a subset of \textcite{Cusworth/Jacob/Varon/Miller/Liu/Chance/Thorpe/Duren/Miller/Thompson/Frankenberg/Guanter/Randles:2019} table~2 (CC BY 4.0).
+Results simulate methane retrievals from the EnMAP satellite, expected to launch in 2021.
+Values in parentheses are standard deviations from five iterations.
+We exclude the paper's results for images with ``dark'' or ``urban'' backgrounds, as these include water and confuse the image processing algorithm.
+In personal communication, the lead author notes ``one could dramatically improve the prediction if there were some sort of decision tree that was based on the underlying surface.''
+
+
+\end{tablenotes}
+\end{threeparttable}

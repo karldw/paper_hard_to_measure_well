@@ -1,0 +1,48 @@
+% Many thanks to Haiyun K. Chen for this guide on drawing game trees in tikz.
+% http://www.sfu.ca/~haiyunc/notes/Game_Trees_with_TikZ.pdf
+
+% Node styles
+\tikzset{
+% Two node styles for game trees: solid and hollow
+solid node/.style={circle,draw,inner sep=1.5,fill=black},
+hollow node/.style={circle,draw,inner sep=1.5},
+square node/.style={rectangle,draw,inner sep=2,fill=black}
+}
+
+\begin{tikzpicture}[scale=1.5,font=\footnotesize]
+% Specify spacing for each level of the tree
+\tikzstyle{level 1}=[level distance=15mm,sibling distance=35mm]
+\tikzstyle{level 2}=[level distance=15mm,sibling distance=15mm]
+
+% The Tree
+\node(0)[solid node,label=above:{Choose \(q_i\)}]{}
+  child{
+    node(1)[square node]{}
+    child{
+      node[hollow node,label=below:{Pay $\tau e_i$}]{}
+      edge from parent node[left]{Yes $(r_i)$}
+    }
+    child{
+      node[hollow node,label=below:{Pay 0}]{}
+      edge from parent node[right]{No $(1 - r_i)$}
+      }
+    edge from parent node[left,xshift=-3]{Leak \((1 - q_i)\)}
+  }
+  child{
+    node(2)[square node]{}
+    child{
+      node[hollow node,label=below:{Pay 0}]{}
+      edge from parent node[left]{Yes $(r_i)$}
+    }
+    child{
+      node[hollow node,label=below:{Pay 0}]{}
+      edge from parent node[right]{No $(1 - r_i)$}
+      }
+    edge from parent node[right,xshift=3]{No leak \((q_i)\)}
+  };
+
+% information set
+\draw[dashed,rounded corners=10]($(1) + (-.2,.25)$)rectangle($(2) +(.2,-.25)$);
+% specify mover at 2nd information set
+\node at ($(1)!.5!(2)$) {Audit?};
+\end{tikzpicture}

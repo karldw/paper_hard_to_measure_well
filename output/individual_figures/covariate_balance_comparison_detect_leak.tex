@@ -1,0 +1,25 @@
+\begin{threeparttable}
+ \caption{Balance comparison: well pads with and without detected leaks differ, but with overlapping covariate support}
+ \label{tab:covariate-balance-comparison}
+\begin{tabularx}{\textwidth}{l d d d d d d}
+\toprule
+& \multicolumn{2}{c}{California} &
+\multicolumn{2}{c}{Four Corners} &
+ \multicolumn{2}{c}{\textcite{Lyon/Alvarez/Zavala-Araiza/Brandt/Jackson/Hamburg:2016}} \\
+& \textcol{Detect} & \textcol{No detect} & \textcol{Detect} & \textcol{No detect} & \textcol{Detect} & \textcol{No detect} \\
+\midrule
+
+\input{../tex_fragments/well_covariate_balance.tex}\\
+\bottomrule
+\end{tabularx}
+\begin{tablenotes}
+\item \textsc{Note:}
+Values are means, with the 10th to 90th percentile value in brackets.
+
+
+California and Four Corners data are from the \gls{AVIRIS-NG} sample (panel \textsc{a} of table~\ref{tab:well-summary-stats}).
+\textcite{Lyon/Alvarez/Zavala-Araiza/Brandt/Jackson/Hamburg:2016} data cover basins throughout the US.
+All values are well-pad aggregates.
+
+\end{tablenotes}
+\end{threeparttable}

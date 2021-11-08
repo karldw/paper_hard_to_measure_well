@@ -1,0 +1,64 @@
+
+{
+"SOCIAL_COST_METHANE_PER_KG": 2.0,
+"METHANE_GWP": 29.8,
+"LEAK_SIZE_DEF": 5.0,
+"AUDIT_COST_TO_COMPARE_FIXED_VS_OPTIM_DWL": 600.0,
+"N_WELL_PADS": 14399,
+"POLICY_DETECT_THRESHOLD_LOW": 0.0,
+"POLICY_DETECT_THRESHOLD_HIGH": 100.0,
+"TAU_LEVELS": {
+    "high": 4.0,
+    "med": 2.0,
+    "low": 0.149
+},
+"T_LEVELS": {
+    "1day": 24.0,
+    "1week": 168.0,
+    "1month": 730.0,
+    "3month": 2190.0,
+    "1year": 8760.0
+},
+"MODEL_NAMES": {
+    "all": [
+        "01_twopart_lognormal",
+        "02_twopart_lognormal_alpha",
+        "03_twopart_lognormal_meas_err",
+        "04_twopart_lognormal_meas_err_alpha",
+        "05_twopart_normal_qr",
+        "06_twopart_normal_qr_alpha",
+        "07_twopart_normal_qr_meas_err",
+        "08_twopart_lognormal_heterog_alpha"
+    ],
+    "qr_models": [
+        "05_twopart_normal_qr",
+        "06_twopart_normal_qr_alpha",
+        "07_twopart_normal_qr_meas_err"
+    ],
+    "lognormal_models": [
+        "01_twopart_lognormal",
+        "02_twopart_lognormal_alpha",
+        "03_twopart_lognormal_meas_err",
+        "04_twopart_lognormal_meas_err_alpha",
+        "05_twopart_normal_qr",
+        "06_twopart_normal_qr_alpha",
+        "07_twopart_normal_qr_meas_err"
+    ],
+    "rhs_ehat_models": [
+        "05_twopart_normal_qr",
+        "06_twopart_normal_qr_alpha",
+        "07_twopart_normal_qr_meas_err"
+    ],
+    "meas_err_models": [
+        "03_twopart_lognormal_meas_err",
+        "04_twopart_lognormal_meas_err_alpha",
+        "07_twopart_normal_qr_meas_err"
+    ],
+    "cost_coef_models": [
+        "02_twopart_lognormal_alpha",
+        "04_twopart_lognormal_meas_err_alpha",
+        "06_twopart_normal_qr_alpha",
+        "08_twopart_lognormal_heterog_alpha"
+    ]
+}
+}

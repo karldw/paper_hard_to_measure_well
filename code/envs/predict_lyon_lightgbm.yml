@@ -1,0 +1,11 @@
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - blas=*=openblas
+  - lightgbm
+  - pandas
+  - pyarrow
+  - python>=3.7
+  - optuna
+  - scikit-learn

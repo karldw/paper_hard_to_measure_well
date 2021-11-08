@@ -1,0 +1,56 @@
+\begin{tikzpicture}[scale=1.5,font=\footnotesize]
+
+% Three node styles: solid, hollow, square
+\tikzstyle{solid node}=[circle,draw,inner sep=1.2,fill=black]
+\tikzstyle{hollow node}=[circle,draw,inner sep=1.2]
+\tikzstyle{square node}=[rectangle,draw,inner sep=2,fill=black]
+
+% Specify spacing for each level of the tree
+\tikzstyle{level 1}=[level distance=15mm,sibling distance=50mm]
+\tikzstyle{level 2}=[level distance=15mm,sibling distance=25mm]
+\tikzstyle{level 3}=[level distance=15mm,sibling distance=8mm]
+
+% The Tree
+\node(0)[solid node]{}
+  child{node(1)[solid node]{}
+    child{node[square node,label=right:{Audit?}]{}
+      child{node[hollow node,label=below:{\hspace*{-2em}Pay: \(\tau e_i\)}]{}
+        edge from parent node[left]{Yes \((r_i)\)}}
+      child{node[hollow node,label=below:{0}]{}
+        edge from parent node[right]{No \((1 - r_i)\)}}
+      edge from parent node[left]{Leak \((1-q_i)\)}
+    }
+    child{node[square node]{}
+      child{node[hollow node,label=below:{0}]{}
+        edge from parent node[left]{Yes \((s_i)\)}}
+      child{node[hollow node,label=below:{0}]{}
+        edge from parent node[right]{No \((1 - s_i)\)}}
+      edge from parent node[right]{No leak \((q_i)\)}
+    }
+    edge from parent node[above left]{Large \(e_i\)}
+  }
+  child{node(2)[solid node]{}
+    child{node[square node]{}
+      child{node[hollow node,label=below:{\(\tau e_i\)}]{}
+        edge from parent node[left]{Yes \((s_i)\)}}
+      child{node[hollow node,label=below:{0}]{}
+        edge from parent node[right]{No \((1 - s_i)\)}}
+      edge from parent node[left]{Leak \((1-q_i)\)}
+    }
+    child{node[square node]{}
+      child{node[hollow node,label=below:{0}]{}
+        edge from parent node[left]{Yes \((s_i)\)}}
+      child{node[hollow node,label=below:{0}]{}
+        edge from parent node[right]{No \((1 - s_i)\)}}
+      edge from parent node[right]{No leak \((q_i)\)}
+    }
+    edge from parent node[above right]{Small \(e_i\)}
+  };
+
+% information set
+\draw[dashed,rounded corners=10]($(1-2)+(-.2,.25)$)rectangle($(2-2)+(.2,-.25)$);
+
+% Add labels
+\node[above]at(0){Well leak size \(e\) (exogenous)};
+\node at ($.7*(1-2)+.3*(2-2)$) {Audit?};
+\end{tikzpicture}

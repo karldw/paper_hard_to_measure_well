@@ -1,0 +1,26 @@
+,
+Choosing from series listed here: https://www.spglobal.com/platts/plattscontent/_assets/_files/en/our-methodology/methodology-specifications/na_gas_methodology.pdf,
+With a strong preference for series that are hubs and strong preference against series that list diameters of individual pipes.,
+basin,price_series
+Bakken,aeco_storage_hub
+Barnett,carthage
+EagleFord,agua_dulce
+Fayetteville,henry_hub
+Marcellus,leidy
+PowderRiver,kern_river
+PowderRiver,kern_river_station
+Uintah,white_river_hub
+San Juan,el_paso_san_juan
+San Juan,transw_e_of_thoreau
+Sacramento,nocal_border_malin
+Santa Cruz,nocal_border_malin
+Ventura,pg_e_south
+Los Angeles,pg_e_south
+Mojave,pg_e_south
+Capistrano,pg_e_south
+San Joaquin,pg_e_south
+Ventura,socal_border
+Los Angeles,socal_border
+Mojave,socal_border
+Capistrano,socal_border
+San Joaquin,socal_border

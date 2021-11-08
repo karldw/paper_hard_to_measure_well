@@ -1,0 +1,23 @@
+\begin{threeparttable}
+ \caption{Balance comparison: well pads that were flown over are similar to same-basin wells that weren't}
+ \label{tab:covariate-balance-comparison-flown-over}
+\begin{tabularx}{\textwidth}{l d d d d}
+\toprule
+& \multicolumn{2}{c}{California} &
+\multicolumn{2}{c}{Four Corners}\\
+& \textcol{Flown over} & \textcol{Not flown over} & \textcol{Flown over} & \textcol{Not flown over} \\
+\midrule
+
+\input{../tex_fragments/well_covariate_balance_by_flyover.tex}\\
+\bottomrule
+\end{tabularx}
+\begin{tablenotes}
+\item \textsc{Note:}
+Values are means, with the 10th to 90th percentile value in brackets.
+
+
+California and Four Corners data are from the \gls{AVIRIS-NG} sample (panel \textsc{a} of table~\ref{tab:well-summary-stats}).
+All values are well-pad aggregates.
+
+\end{tablenotes}
+\end{threeparttable}

@@ -1,0 +1,10 @@
+
+# Note: this is the environment file to install snakemake, *not* the file
+# snakemake uses to run rules.
+# Suggested environment name: snakemake
+channels:
+    - conda-forge
+    - base
+dependencies:
+    - bioconda::snakemake-minimal=6.8.0
+    - singularity=3.7.1

@@ -1,0 +1,217 @@
+% !TeX encoding = utf8
+% !TeX spellcheck = en_US
+% !BIB program = biber
+% !TeX program = lualatex
+
+\documentclass[12pt,oneside,letterpaper]{article}
+
+\nonstopmode
+
+% Set a better default text area (note: don't use this and geometry at the same time.)
+\usepackage[DIV=10]{typearea}
+\usepackage{fontspec}
+\defaultfontfeatures{Ligatures=TeX}
+\usepackage{amsmath}  % must be loaded before unicode-math
+\usepackage{amsthm}
+% Libertinus code suggested by https://tex.stackexchange.com/a/364502
+\usepackage[
+    math-style=ISO,
+    bold-style=ISO,
+    partial=upright,
+    nabla=upright
+]{unicode-math}
+\setmainfont[Numbers={OldStyle, Proportional}]{Libertinus Serif}
+\setsansfont{Libertinus Sans}
+\setmathfont{Libertinus Math}
+\usepackage[final]{microtype}
+\frenchspacing{}
+\microtypecontext{spacing=french}
+
+\usepackage{xcolor}
+
+\usepackage{rotating} % provide the sidewaysfigure environment
+
+% Bibliograph
+\usepackage[authordate,isbn=false,backend=biber,autopunct=true]{biblatex-chicago}
+% \usepackage{biblatex-certrand} % in the same folder
+\renewcommand*{\bibfont}{\small}
+\addbibresource{refs.bib}
+\addbibresource{methane_measurement_refs.bib}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\lhead{}
+\chead{}
+\rhead{}
+\lfoot{}
+\cfoot{}
+\rfoot{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+
+% Set up tables
+\usepackage{tabularx}
+\usepackage[online,flushleft]{threeparttable}
+\usepackage{dcolumn}
+\newcolumntype{d}{D{@}{\hspace{0pt}}{4}}
+\newcommand{\textcol}[1]{\multicolumn{1}{c}{#1}}
+
+\usepackage{sparklines}
+
+\usepackage{booktabs}
+
+\usepackage[version=4]{mhchem}
+\usepackage{graphicx}
+\graphicspath{{../graphics/}}
+\usepackage{wrapfig} % provides wrapfigure and wraptable environments
+\usepackage{float} % provide H float placement
+
+\usepackage{tikz}
+\usetikzlibrary{calc}
+
+\usepackage{import}
+\usepackage{hyperref}
+\input{define_acronyms.tex} % loads glossaries package, and should be loaded after hyperref
+\setacronymstyle{long-sc-short}
+
+
+\hypersetup{colorlinks,
+  linkcolor=blue!40!black,
+  filecolor=black,
+  urlcolor=blue!40!black,  % 40% blue, 60% black
+  citecolor=black,
+  pdfpagemode=UseNone,
+  pdftoolbar=false,
+  pdftitle={},
+  pdfauthor={},
+  pdfsubject={},
+  pdfcreator={},
+  pdfproducer={},
+  pdflang=en,
+  unicode=true
+}
+
+\begin{document}
+% This is a dummy label to avoid latex warnings in nat_gas_price_timeseries.tex
+\label{sec:price-data}
+
+
+Figure listing:
+\begin{itemize}
+\item Table~\ref{tab:well-summary-stats}: summary stats
+\item Table~\ref{tab:covariate-balance-comparison}: balance comparison between wells that were found leaking vs not
+\item Table~\ref{tab:covariate-balance-comparison-flown-over}: balance comparison between wells that were flown over vs not
+\item Table~\ref{tab:expected-fee-1pct-1week}: Expected fees wells face when 1\% of wells are audited and \(T = \) 1~week
+\item Table~\ref{tab:expected-fee-1pct-3month}: Expected fees wells face when 1\% of wells are audited and \(T = \) 3~months
+% \item Table~\ref{tab:expected-fee-optim-600}: Expected fees when the regulator optimizes audits, at \$600 per audit
+% \item Table~\ref{tab:expected-fee-optim-100}: Expected fees when the regulator optimizes audits, at \$100 per audit
+\item Table~\ref{tab:policy-outcomes-1pct-1week}: Policy outcomes across policies, stringency, and levels of \(\tau\), assuming 1\% of wells are audited and \(T = \) 1~week
+\item Table~\ref{tab:policy-outcomes-1pct-3month}: Policy outcomes across policies, stringency, and levels of \(\tau\), assuming 1\% of wells are audited and \(T = \) 3~months
+\item Figure~\ref{fig:audit-shadow-price-plot}: Shadow prices on the audit budget
+\item Figure~\ref{fig:game-tree-target-x}: Game tree for the target-\(X\) policy
+\item Figure~\ref{fig:game-tree-target-e-no-censor}: Game tree for the target-\(e\) policy without censoring
+\item Figure~\ref{fig:game-tree-target-e-censor}: Game tree for the target-\(e\) policy with censoring
+\item Table~\ref{tab:drilling-response-estimates}: Drilling response parameters and results
+\item Figure~\ref{fig:frankenberg-measurement-figs}: Methane measurement figure from \textcite{Frankenberg/etal:2016}
+\item Figure~\ref{fig:nat-gas-price-timeseries}: Price series
+\item Figure~\ref{fig:wells-per-pad}: Histogram of wells per pad
+\item Figure~\ref{fig:well-pads-per-operator}: CDF of well pads per operator
+\item Table~\ref{tab:param-leak-obs}: Estimated parameters of the leak distribution
+\item Table~\ref{tab:param-leak-size}: Estimated parameters of the leak distribution
+\item Figure~\ref{fig:audit-gains-dwl-rel-plot}: Relative change in DWL for a fixed 1\% audit fraction (T = 1 week)
+\item Figure~\ref{fig:audit-gains-emis-rel-plot}: Relative change in emissions for a fixed 1\% audit fraction (T = 1 week)
+\end{itemize}
+
+
+\begin{table}[H]
+\import{individual_figures/}{well_summary_stats.tex}
+\end{table}
+
+\begin{table}[H]
+\import{individual_figures/}{covariate_balance_comparison_detect_leak.tex}
+\end{table}
+
+\begin{table}[H]
+\import{individual_figures/}{covariate_balance_comparison_flyover.tex}
+\end{table}
+
+\begin{table}[H]
+\import{individual_figures/}{expected_fee_1pct_1week.tex}
+\end{table}
+
+\begin{table}[H]
+\import{individual_figures/}{expected_fee_1pct_3month.tex}
+\end{table}
+
+% \begin{table}[H]
+% \import{individual_figures/}{expected_fee_optim_600.tex}
+% \end{table}
+%
+% \begin{table}[H]
+% \import{individual_figures/}{expected_fee_optim_100.tex}
+% \end{table}
+
+\begin{table}[H]
+\import{individual_figures/}{policy_outcomes_frac=1pct_T=1week.tex}
+\end{table}
+
+\begin{table}[H]
+\import{individual_figures/}{policy_outcomes_frac=1pct_T=3month.tex}
+\end{table}
+
+\begin{figure}[H]
+\import{individual_figures/}{audit_shadow_price_plot.tex}
+\end{figure}
+
+\begin{figure}[H]
+\import{individual_figures/}{game_tree_target_x.tex}
+\end{figure}
+
+\begin{figure}[H]
+\import{individual_figures/}{game_tree_target_e_no_censor.tex}
+\end{figure}
+
+\begin{figure}[H]
+\import{individual_figures/}{game_tree_target_e_censor.tex}
+\end{figure}
+
+\begin{table}[H]
+\import{individual_figures/}{drilling_response_estimates.tex}
+\end{table}
+
+\begin{figure}[H]
+\import{individual_figures/}{frankenberg_measurement_figs.tex}
+\end{figure}
+
+\begin{figure}[H] % \ref{fig:nat-gas-price-timeseries}
+\import{individual_figures/}{nat_gas_price_timeseries.tex}
+\end{figure}
+
+\begin{figure}[H]
+\label{fig:wells-per-pad}
+\includegraphics[width=\textwidth]{wells_per_pad_histogram}
+\end{figure}
+
+\begin{figure}[H]
+\label{fig:well-pads-per-operator}
+\includegraphics[width=\textwidth]{well_pads_per_operator_cdf}
+\end{figure}
+
+\begin{table}[H]
+\import{individual_figures/}{model_parameters_leak_size.tex}
+\end{table}
+
+\begin{table}[H]
+\import{individual_figures/}{model_parameters_obs_leak.tex}
+\end{table}
+
+\begin{figure}[H]
+\label{fig:audit-gains-dwl-rel-plot}
+\includegraphics[width=\textwidth]{audit_gains_rel_plot_dwl_frac=1pct}
+\end{figure}
+
+\begin{figure}[H]
+\label{fig:audit-gains-emis-rel-plot}
+\includegraphics[width=\textwidth]{audit_gains_rel_plot_emis_frac=1pct}
+\end{figure}
+
+\end{document}

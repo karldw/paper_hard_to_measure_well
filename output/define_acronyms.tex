@@ -1,0 +1,59 @@
+
+% Write out acronyms in small caps that can be copy-pasted as full caps.
+% It would be nice to have something that depended less on defining each acronym, or less on the c2sc OpenType font feature
+% Usage: \makeacronym{NASA}
+\usepackage{accsupp}
+\usepackage{glossaries}
+\glsdisablehyper{} % disable hyperlinks
+
+
+% Create acronyms in a way that works nicely with smallcaps.
+% (eg \setacronymstyle{long-sc-short})
+% This code makes the acronym lowercase so small caps can be applied,
+% but adds an accessibility layer so it copies-pastes in upper case.
+\newcommand{\makeacronym}[2]{%
+\newacronym{#1}{%
+\protect\BeginAccSupp{method=plain,ActualText=#1}%
+\MakeLowercase{#1}%
+\protect\EndAccSupp{}%
+}{#2}%
+}
+\makeacronym{ARE}{Agricultural and Resource Economics}
+\makeacronym{AVIRIS-NG}{``next generation airborne visible/infrared imaging spectrometer''}
+\makeacronym{BAU}{business as usual}
+\makeacronym{BLS}{Bureau of Labor Statistics}
+\makeacronym{CDD}{cooling degree days}
+\makeacronym{CDF}{cumulative distribution function}
+\makeacronym{CEMS}{continuous emissions monitoring}
+\makeacronym{CI}{confidence interval}
+\makeacronym{DWL}{deadweight loss}
+\makeacronym{EPA}{Environmental Protection Agency}
+\makeacronym{EU ETS}{European Union Emission Trading Scheme}
+\makeacronym{FOC}{first-order condition}
+\makeacronym{GDP}{gross domestic product}
+% \makeacronym{FEAST}{}
+% Could make GHG have a proper plural: https://tex.stackexchange.com/a/128419
+\newacronym[longplural={greenhouse gases}, shortplural={ghg}]{GHG}{%
+\protect\BeginAccSupp{method=plain,ActualText=GHG}%
+ghg%
+\protect\EndAccSupp{}
+}{greenhouse gas}
+\makeacronym{GHGI}{greenhouse gas inventory}
+\makeacronym{GHGRP}{greenhouse gas reporting program}
+\makeacronym{GOSAT}{Greenhouse Gases Observing Satellite}
+\makeacronym{GWP}{global warming potential}
+\makeacronym{HDD}{heating degree days}
+\makeacronym{i.i.d.}{independent and identically distributed}
+\makeacronym{IHS}{inverse hyperbolic sine}
+\makeacronym{IPCC}{Intergovernmental Panel on Climate Change}
+\makeacronym{KKT}{Karush–Kuhn–Tucker}
+\makeacronym{LDAR}{leak detection and repair}
+\makeacronym{MCMC}{Markov chain Monte Carlo}
+\makeacronym{MLE}{maximum likelihood estimation}
+\makeacronym{MSE}{mean squared error}
+\makeacronym{OSHA}{Occupational Safety and Health Administration}
+\makeacronym{PDF}{probability density function}
+\makeacronym{SCC}{social cost of carbon}
+\makeacronym{SDID}{synthetic difference in differences}
+\makeacronym{SNL}{SNL Financial}
+\makeacronym{WAIC}{widely applicable information criterion}
