@@ -3,43 +3,21 @@
   author = {{R Core Team}},
   organization = {R Foundation for Statistical Computing},
   address = {Vienna, Austria},
-  year = {2021},
+  year = {2022},
   url = {https://www.R-project.org/},
 }
 
 @Manual{arrow,
   title = {arrow: Integration to `Apache' `Arrow'},
   author = {Neal Richardson and Ian Cook and Nic Crane and Jonathan Keane and Romain François and Jeroen Ooms and {Apache Arrow}},
-  year = {2021},
-  note = {5.0.0},
-  url = {https://cran.r-project.org/package=arrow},
-}
-
-@Article{brms,
-  title = {{brms}: An {R} Package for {Bayesian} Multilevel Models Using {Stan}},
-  author = {Paul-Christian Bürkner},
-  journal = {Journal of Statistical Software},
-  year = {2017},
-  volume = {80},
-  number = {1},
-  pages = {1--28},
-  doi = {10.18637/jss.v080.i01},
-  encoding = {UTF-8},
-}
-
-@Manual{broom,
-  title = {broom: Convert Statistical Objects into Tidy Tibbles},
-  author = {David Robinson and Alex Hayes and Simon Couch},
-  year = {2021},
-  note = {0.7.9},
-  url = {https://cran.r-project.org/package=broom},
+  note = {https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/},
 }
 
 @Manual{cmdstanr,
   title = {cmdstanr: R Interface to `CmdStan'},
   author = {Jonah Gabry and Rok Češnovar},
-  year = {2021},
-  url = {https://mc-stan.org/cmdstanr},
+  year = {2022},
+  note = {https://mc-stan.org/cmdstanr/, https://discourse.mc-stan.org},
 }
 
 @Manual{curl,
@@ -47,23 +25,15 @@
   author = {Jeroen Ooms},
   year = {2021},
   note = {4.3.2},
-  url = {https://cran.r-project.org/package=curl},
+  url = {https://CRAN.R-project.org/package=curl},
 }
 
 @Manual{data.table,
-  title = {data.table: Extension of `data.frame'},
+  title = {data.table: Extension of `data.frame`},
   author = {Matt Dowle and Arun Srinivasan},
   year = {2021},
   note = {1.14.0},
-  url = {https://cran.r-project.org/package=data.table},
-}
-
-@Manual{digest,
-  title = {digest: Create Compact Hash Digests of R Objects},
-  author = {Dirk Eddelbuettel with contributions by Antoine Lucas and Jarek Tuszynski and Henrik Bengtsson and Simon Urbanek and Mario Frasca and Bryan Lewis and Murray Stokely and Hannes Muehleisen and Duncan Murdoch and Jim Hester and Wush Wu and Qiang Kou and Thierry Onkelinx and Michel Lang and Viliam Simko and Kurt Hornik and Radford Neal and Kendon Bell and Matthew {de Queljoe} and Ion Suruceanu and Bill Denney and Dirk Schumacher and Winston Chang},
-  year = {2020},
-  note = {0.6.27},
-  url = {https://cran.r-project.org/package=digest},
+  url = {https://CRAN.R-project.org/package=data.table},
 }
 
 @Manual{dplyr,
@@ -71,15 +41,7 @@
   author = {Hadley Wickham and Romain François and Lionel Henry and Kirill Müller},
   year = {2021},
   note = {1.0.7},
-  url = {https://cran.r-project.org/package=dplyr},
-}
-
-@Manual{forcats,
-  title = {forcats: Tools for Working with Categorical Variables (Factors)},
-  author = {Hadley Wickham},
-  year = {2021},
-  note = {0.5.1},
-  url = {https://cran.r-project.org/package=forcats},
+  url = {https://CRAN.R-project.org/package=dplyr},
 }
 
 @Manual{fs,
@@ -87,25 +49,15 @@
   author = {Jim Hester and Hadley Wickham},
   year = {2020},
   note = {1.5.0},
-  url = {https://cran.r-project.org/package=fs},
+  url = {https://CRAN.R-project.org/package=fs},
 }
 
-@article{furrr,
-  author = {Henrik Bengtsson},
-  title = {{A Unifying Framework for Parallel and Distributed Processing in R using Futures}},
+@Manual{furrr,
+  title = {furrr: Apply Mapping Functions in Parallel using Futures},
+  author = {Davis Vaughan and Matt Dancho},
   year = {2021},
-  journal = {R Journal},
-  doi = {10.32614/RJ-2021-048},
-  url = {https://journal.r-project.org/archive/2021/RJ-2021-048/index.html}
-}
-
-@Book{ggplot2,
-  author = {Hadley Wickham},
-  title = {ggplot2: Elegant Graphics for Data Analysis},
-  publisher = {Springer-Verlag New York},
-  year = {2016},
-  isbn = {978-3-319-24277-4},
-  url = {https://ggplot2.tidyverse.org},
+  note = {0.2.3},
+  url = {https://CRAN.R-project.org/package=furrr},
 }
 
 @Misc{future,
@@ -119,12 +71,37 @@
   url = {https://arxiv.org/abs/2008.00553},
 }
 
+@Book{ggplot2,
+  author = {Hadley Wickham},
+  title = {ggplot2: Elegant Graphics for Data Analysis},
+  publisher = {Springer-Verlag New York},
+  year = {2016},
+  isbn = {978-3-319-24277-4},
+  url = {https://ggplot2.tidyverse.org},
+}
+
+@Manual{ggpointdensity,
+  title = {ggpointdensity: A Cross Between a 2D Density Plot and a Scatter Plot},
+  author = {Lukas P. M. Kremer},
+  year = {2019},
+  note = {0.1.0},
+  url = {https://CRAN.R-project.org/package=ggpointdensity},
+}
+
 @Manual{glue,
   title = {glue: Interpreted String Literals},
-  author = {Jim Hester},
-  year = {2020},
-  note = {1.4.2},
-  url = {https://cran.r-project.org/package=glue},
+  author = {Jim Hester and Jennifer Bryan},
+  year = {2022},
+  note = {1.6.2},
+  url = {https://CRAN.R-project.org/package=glue},
+}
+
+@Manual{gt,
+  title = {gt: Easily Create Presentation-Ready Display Tables},
+  author = {Richard Iannone and Joe Cheng and Barret Schloerke},
+  year = {2021},
+  note = {0.3.0},
+  url = {https://CRAN.R-project.org/package=gt},
 }
 
 @Manual{here,
@@ -132,7 +109,7 @@
   author = {Kirill Müller},
   year = {2020},
   note = {1.0.1},
-  url = {https://cran.r-project.org/package=here},
+  url = {https://CRAN.R-project.org/package=here},
 }
 
 @Article{igraph,
@@ -169,7 +146,7 @@
   author = {Stefan Milton Bache and Hadley Wickham},
   year = {2020},
   note = {2.0.1},
-  url = {https://cran.r-project.org/package=magrittr},
+  url = {https://CRAN.R-project.org/package=magrittr},
 }
 
 @Manual{matrixStats,
@@ -178,7 +155,7 @@ Vectors)},
   author = {Henrik Bengtsson},
   year = {2021},
   note = {0.60.0},
-  url = {https://cran.r-project.org/package=matrixStats},
+  url = {https://CRAN.R-project.org/package=matrixStats},
 }
 
 @Manual{nngeo,
@@ -186,15 +163,23 @@ Vectors)},
   author = {Michael Dorman},
   year = {2021},
   note = {0.4.3},
-  url = {https://cran.r-project.org/package=nngeo},
+  url = {https://CRAN.R-project.org/package=nngeo},
 }
 
 @Misc{posterior,
   title = {posterior: Tools for Working with Posterior Distributions},
   author = {Paul-Christian Bürkner and Jonah Gabry and Matthew Kay and Aki Vehtari},
-  year = {2021},
-  note = {1.1.0},
-  url = {https://mc-stan.org/posterior},
+  year = {2023},
+  note = {1.4.1},
+  url = {https://mc-stan.org/posterior/},
+}
+
+@Manual{powerjoin,
+  title = {powerjoin: Extensions of `dplyr' and `fuzzyjoin' Join Functions},
+  author = {Antoine Fabri},
+  year = {2022},
+  note = {0.1.0},
+  url = {https://CRAN.R-project.org/package=powerjoin},
 }
 
 @Manual{processx,
@@ -202,15 +187,15 @@ Vectors)},
   author = {Gábor Csárdi and Winston Chang},
   year = {2021},
   note = {3.5.2},
-  url = {https://cran.r-project.org/package=processx},
+  url = {https://CRAN.R-project.org/package=processx},
 }
 
 @Manual{purrr,
   title = {purrr: Functional Programming Tools},
-  author = {Lionel Henry and Hadley Wickham},
-  year = {2020},
-  note = {0.3.4},
-  url = {https://cran.r-project.org/package=purrr},
+  author = {Hadley Wickham and Lionel Henry},
+  year = {2022},
+  note = {1.0.0},
+  url = {https://CRAN.R-project.org/package=purrr},
 }
 
 @Manual{RColorBrewer,
@@ -218,7 +203,7 @@ Vectors)},
   author = {Erich Neuwirth},
   year = {2014},
   note = {1.1-2},
-  url = {https://cran.r-project.org/package=RColorBrewer},
+  url = {https://CRAN.R-project.org/package=RColorBrewer},
 }
 
 @Manual{readxl,
@@ -226,22 +211,23 @@ Vectors)},
   author = {Hadley Wickham and Jennifer Bryan},
   year = {2019},
   note = {1.3.1},
-  url = {https://cran.r-project.org/package=readxl},
+  url = {https://CRAN.R-project.org/package=readxl},
+}
+
+@Manual{remotes,
+  title = {remotes: R Package Installation from Remote Repositories, Including `GitHub'},
+  author = {Gábor Csárdi and Jim Hester and Hadley Wickham and Winston Chang and Martin Morgan and Dan Tenenbaum},
+  year = {2021},
+  note = {2.4.2},
+  url = {https://CRAN.R-project.org/package=remotes},
 }
 
 @Manual{rlang,
   title = {rlang: Functions for Base Types and Core R and `Tidyverse' Features},
   author = {Lionel Henry and Hadley Wickham},
-  year = {2021},
-  note = {0.4.11},
-  url = {https://cran.r-project.org/package=rlang},
-}
-
-@Manual{safejoin,
-  title = {safejoin: Join safely and Deal with Conflicting Columns},
-  author = {Antoine Fabri},
-  year = {2021},
-  note = {0.1.0},
+  year = {2023},
+  note = {1.1.0},
+  url = {https://CRAN.R-project.org/package=rlang},
 }
 
 @Article{sf,
@@ -261,7 +247,7 @@ Vectors)},
   author = {Hadley Wickham},
   year = {2019},
   note = {1.4.0},
-  url = {https://cran.r-project.org/package=stringr},
+  url = {https://CRAN.R-project.org/package=stringr},
 }
 
 @Manual{tibble,
@@ -269,7 +255,7 @@ Vectors)},
   author = {Kirill Müller and Hadley Wickham},
   year = {2021},
   note = {3.1.3},
-  url = {https://cran.r-project.org/package=tibble},
+  url = {https://CRAN.R-project.org/package=tibble},
 }
 
 @Manual{tidyr,
@@ -277,7 +263,7 @@ Vectors)},
   author = {Hadley Wickham},
   year = {2021},
   note = {1.1.3},
-  url = {https://cran.r-project.org/package=tidyr},
+  url = {https://CRAN.R-project.org/package=tidyr},
 }
 
 @Manual{tidyselect,
@@ -285,7 +271,7 @@ Vectors)},
   author = {Lionel Henry and Hadley Wickham},
   year = {2021},
   note = {1.1.1},
-  url = {https://cran.r-project.org/package=tidyselect},
+  url = {https://CRAN.R-project.org/package=tidyselect},
 }
 
 @Article{units,
@@ -304,5 +290,13 @@ Vectors)},
   author = {Jeroen Ooms},
   year = {2020},
   note = {1.5.2},
-  url = {https://cran.r-project.org/package=unix},
+  url = {https://CRAN.R-project.org/package=unix},
+}
+
+@Manual{xml2,
+  title = {xml2: Parse XML},
+  author = {Hadley Wickham and Jim Hester and Jeroen Ooms},
+  year = {2020},
+  note = {1.3.2},
+  url = {https://CRAN.R-project.org/package=xml2},
 }

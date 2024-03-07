@@ -34,7 +34,6 @@ def write_drillinginfo_data(zip_filename):
 
 
 def write_public(zip_filename):
-
     # Public / sharable data
     data = Path("data")
     to_write = [
@@ -74,8 +73,8 @@ def write_public(zip_filename):
     to_write += [
         Path(".") / f
         for f in (
+            ".condarc",
             ".gitignore",
-            "renv.lock",
             "README.md",
             "Snakefile",
         )
@@ -87,14 +86,12 @@ def write_public(zip_filename):
     to_write += [
         code_dir / f
         for f in (
-            "api_state_codes.csv",
             "constants.json",
             "version_info_cmdstan.txt",
             "snl_nat_gas_basin_match.csv",
         )
     ]
     to_write += (code_dir / "envs").iterdir()
-    to_write += (code_dir / "git_hooks").iterdir()
     to_write += (code_dir / "stan_models").glob("*.stan")  # exclude compiled models
 
     # Graphics (that aren't recreated)
@@ -117,7 +114,6 @@ def write_public(zip_filename):
     to_write += [
         output_dir / f
         for f in (
-            "all_figures.tex",
             "define_acronyms.tex",
             "methane_measurement_refs.bib",
             "paper.tex",

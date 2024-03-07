@@ -1,21 +1,22 @@
+suppressMessages(
+  here::i_am("code/generate_code_cites.R", uuid="a15d2768-12b9-457a-ba23-e160281710d5")
+)
 source(here::here("code/shared_functions.r"))
 
 cite_attached_packages(snakemake@output[[1]], c(
   "base", # R base
   "arrow",
-  "brms",
-  "broom",
   "cmdstanr",
   "curl",
   "data.table",
-  "digest",
   "dplyr",
-  "forcats",
   "fs",
   "furrr",
-  "ggplot2",
   "future",
+  "ggplot2",
+  "ggpointdensity",
   "glue",
+  "gt",
   "here",
   "igraph",
   "jsonlite",
@@ -24,17 +25,19 @@ cite_attached_packages(snakemake@output[[1]], c(
   "matrixStats",
   "nngeo",
   "posterior",
+  "powerjoin",
   "processx",
   "purrr",
   "RColorBrewer",
   "readxl",
+  "remotes",
   "rlang",
-  "safejoin",
   "sf",
   "stringr",
   "tibble",
   "tidyr",
   "tidyselect",
   "units",
-  "unix"
+  "unix",
+  "xml2"
 ))

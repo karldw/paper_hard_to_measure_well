@@ -1,4 +1,6 @@
-
+suppressMessages(
+  here::i_am("code/bea_industry_facts.R", uuid="c4bb8916-4aea-47c6-99ab-97909e20f68d")
+)
 source(here::here("code/shared_functions.r"))
 memory_limit(snakemake@resources[["mem_mb"]])
 suppressWarnings(loadNamespace("lubridate")) # avoid https://github.com/tidyverse/lubridate/issues/965
@@ -30,7 +32,7 @@ df_deprec %<>% dplyr::rename(line = Line, item = ...2) %>%
 
 
 prices = load_price_index(snakemake@input$price_index_file, base_year=2019) %>%
-  dplyr::mutate(year = lubridate::year(date)) %>%
+  dplyr::mutate(year = as.integer(lubridate::year(date))) %>%
   dplyr::group_by(year) %>%
   dplyr::summarize(price_index = mean(price_index), .groups="drop")
 
@@ -40,8 +42,18 @@ oil_gas <- dplyr::filter(df_gdp, line %in% 56:57) %>%
   data.table::transpose(make.names=TRUE) %>%
   dplyr::mutate(year = !!years) %>%
   dplyr::mutate_if(is.character, as.numeric) %>%
-  safejoin::safe_inner_join(df_deprec, by="year", check="UVBVTL") %>%
-  safejoin::safe_inner_join(prices, by="year", check="UVBVL") %>%
+  powerjoin::power_inner_join(df_deprec, by="year", check=
+    merge_specs(
+      unmatched_keys_left = "ignore",
+      unmatched_keys_right = "ignore",
+    )
+  ) %>%
+  powerjoin::power_inner_join(prices, by="year", check=
+    merge_specs(
+      unmatched_keys_left = "ignore",
+      unmatched_keys_right = "ignore",
+    )
+  ) %>%
   dplyr::rename_all(make_better_names) %>%
   dplyr::mutate(
     net_value_nominal_bn = value_added - compensation_of_employees - deprec_current_cost,

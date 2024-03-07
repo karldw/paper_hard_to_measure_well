@@ -503,16 +503,7 @@ load_price_index <- function(filename, base_year = 2018) {
     mean()
   return(dplyr::mutate(df, price_index = price_index / !!base_index))
 }
-#
-# make_prices_real <- function(df) {
-#   dplyr::mutate(df,
-#     price_spot = price_spot / price_index,
-#     price_future_1mo = price_future_1mo / price_index,
-#     price_future_2mo = price_future_2mo / price_index,
-#     price_future_3mo = price_future_3mo / price_index,
-#     price_future_4mo = price_future_4mo / price_index,
-#   )
-# }
+
 
 get_complete_wells <- function(header_files) {
   # NOTE: "complete" here means I observe the complete history, NOT that the
@@ -634,19 +625,42 @@ quantile_ <- function(x, probs) {
   stats::quantile(x, probs, na.rm=TRUE, names=FALSE, type=8)
 }
 
+lonlat_to_projected <- function(df, coord_vars) {
+  stopifnot(is.character(coord_vars), length(coord_vars) == 2)
+  maybe_reversed_vars <- grepl("lat", coord_vars[1], ignore.case=TRUE) &&
+      grepl("lon", coord_vars[1], ignore.case=TRUE)
+  if (maybe_reversed_vars) {
+    warn(paste0(
+      "coord_vars should be longitude and latitude (in that order), but the ",
+      "names contain 'lat' and 'lon' (reversed order) which is worrying. Are ",
+      "you sure they're in the right order?"
+    ))
+  }
+  lonlat_crs <- sf::st_crs(CRS_LONGLAT_int)
+  proj_crs   <- sf::st_crs(CRS_PROJECT_int)
+
+  out <- sf::st_as_sf(df, crs=lonlat_crs, coords=coord_vars) %>%
+    sf::st_transform(crs=proj_crs)
+  return(out)
+}
+
 geometry_to_lonlat <- function(x) {
   if (any(sf::st_geometry_type(x) != "POINT")) {
     stop("Selecting non-points isn't implemented.")
   }
-  coord_df <- sf::st_transform(x, sf::st_crs("+proj=longlat +datum=WGS84")) %>%
+
+  coord_df <- x %>%
+    sf::st_transform(crs=sf::st_crs(CRS_LONGLAT_int)) %>%
     sf::st_coordinates() %>%
     dplyr::as_tibble() %>%
     dplyr::select(X, Y) %>%
     dplyr::rename(longitude = X, latitude = Y)
-  out <- sf::st_set_geometry(x, NULL) %>%
+
+  out <- sf::st_drop_geometry(x) %>%
     dplyr::bind_cols(coord_df)
   return(out)
 }
+
 
 #' Check that within groups defined by `x`, there's at most one value of `y`
 #'
@@ -770,12 +784,8 @@ tidy_gsub <- function (x, pattern, replacement, fixed = FALSE) {
 make_table_fragment <- function(data, escaped=TRUE, add_comments="") {
   # Identical to gt::to_latex(), except omitting the table start, column
   # headings, and table end. (More flexibility to add those yourself)
-  # Built using *internal* functions of gt v0.2.1
-  if (digest::sha1(gt::as_latex) != "efc63eab16916eae6fb932b077e839707792ecb7") {
-    stop("as_latex function has changed -- the function make_table_fragment may need to be edited")
-    # This isn't perfect, of course, because the component functions could also
-    # change.
-  }
+  # Built using *internal* functions of gt v0.2.1, unchanged in 0.3.0
+  stopifnot(packageVersion("gt") == "0.3.0")
   gt:::stop_if_not_gt(data = data)
 
   data <- data %>% gt:::build_data(context = "latex")
@@ -954,8 +964,12 @@ merge_estimates_df <- function(tidy_results_lst) {
     ) %>%
     dplyr::distinct() %>%
     tidyr::expand(term_group, row_type)
-  expanded_dfs <- purrr::map(tidy_results_lst, safejoin::safe_full_join,
-      y=full_cross, by=c("term_group", "row_type"), check="U V B C L T"
+  expanded_dfs <- purrr::map(tidy_results_lst, powerjoin::power_full_join,
+      y=full_cross, by=c("term_group", "row_type"),
+      check=merge_specs(
+        unmatched_keys_left = "ignore",
+        unmatched_keys_right = "ignore",
+      )
     )
   # Very messy way of filling in the term when the first results df didn't have it
   first_df <- expanded_dfs[[1]] %>%
@@ -964,14 +978,17 @@ merge_estimates_df <- function(tidy_results_lst) {
       row_type == "1 point estimate" ~ term_group,
       TRUE ~ ""))
 
-  # # First, remove the "term" variable from all but the first df
-  # # Then join all the tables together (this works as long as tidy_results_lst
-  # # contains at least one results dataframe)
+  # First, remove the "term" variable from all but the first df
+  # Then join all the tables together (this works as long as tidy_results_lst
+  # contains at least one results dataframe)
   merged_df <- tail(tidy_results_lst, length(tidy_results_lst) - 1) %>%
     purrr::map(~dplyr::select(., -term)) %>%
-    purrr::reduce(safejoin::safe_full_join, .init=first_df,
-      by=c("term_group", "row_type"), check="U V B C L T")
-
+    purrr::reduce(powerjoin::power_full_join, .init=first_df,
+      by=c("term_group", "row_type"), check=merge_specs(
+        unmatched_keys_left = "ignore",
+        unmatched_keys_right = "ignore",
+      )
+    )
   # Make a gt
   tab <- gt::gt(merged_df) %>%
     gt::fmt_missing(tidyselect::everything(), missing_text="") %>%
@@ -1025,7 +1042,7 @@ filename_to_model_name <- function(x) {
    )
   }
   # Convert
-  # "data/generated/stan_fits/01_twopart_lognormal_model-bootstrap/model_fit.rds"
+  # "scratch/stan_fits/01_twopart_lognormal_model-bootstrap/model_fit.rds"
   # into list(model="01_twopart_lognormal", prior_only=FALSE, bootstrap=TRUE)
   # Each element of the output has the same length as x.
   d <- basename(dirname(x))
@@ -1056,6 +1073,7 @@ approx_equal <- function(x, y) {
   stopifnot(length(x) == length(y) || length(x) == 1 || length(y) == 1)
   (x > y - 1e-10) & (x < y + 1e-10)
 }
+
 
 harmonize_basin_name <- function(df, group_small_CA_basins=FALSE) {
   stopifnot(c("state", "basin") %in% colnames(df))
@@ -1113,40 +1131,175 @@ escape_regex <- function(x) {
   tidy_gsub(x, replace_regex, "\\\\\\1")
 }
 
+prep_measurement_data_extra <- function(filename_aviris, filename_ground_studies) {
+  if (!existsFunction("prep_measurement_data")) {
+    stop("Need to source model_data_prep.r first")
+  }
+  # This function is not part of model_data_prep.r because changing that file
+  # changes a lot of downstream outputs, and this function only affects a
+  # couple of summary statistics and plots, not the main analysis.
+  aviris_all <- prep_measurement_data(filename_aviris)
+
+  # Also see harmonize_basin_name() above.
+  basins_ca <- c("Other California", "San Joaquin")
+  basins_4c <- "San Juan"
+  stopifnot(setequal(unique(aviris_all$basin), c(basins_ca, basins_4c)))
+
+  censor_threshold_ground_kg <- 0.04 # from the literature, e.g. Zhang et al (2020)
+  ground_studies <- arrow::read_parquet(filename_ground_studies) %>%
+    dplyr::transmute(
+      censor_threshold_kg = !!censor_threshold_ground_kg,
+      censored = ifelse(emiss_kg_hr <= censor_threshold_kg, "left", "none"),
+      emiss_kg_hr_fill_censor = ifelse(censored == "left", censor_threshold_kg, emiss_kg_hr),
+      gas_avg_mcfd = gas_production_mcfd,
+      emiss_kg_hr = emiss_kg_hr,
+      basin = basin
+    )
+  df_list <- list(
+    aviris_all = aviris_all,
+    aviris_trunc = dplyr::filter(aviris_all, censored == "none"),
+    ground_studies = ground_studies,
+    jpl_wells_all = dplyr::filter(aviris_all, basin %in% basins_ca),
+    four_corners_all_wells = dplyr::filter(aviris_all, basin %in% basins_4c)
+  )
+  df_list$all_measures <- dplyr::bind_rows(aviris_all, ground_studies) %>%
+    dplyr::select(basin, censored, emiss_kg_hr, gas_avg_mcfd, censor_threshold_kg)
+
+  stopifnot(!anyNA(df_list$aviris_trunc$emiss_kg_hr))
+  df_list
+}
+
+elapsed_time_str <- function(start_time) {
+  elapsed <- Sys.time() - start_time
+  paste(round(elapsed, 2), attr(elapsed, "units"))
+}
 
 check_for_bad_env_vars <- function() {
-  # Singularity passes environment variables through to the container. That's a
-  # problem for some path variables like RENV_PATHS_ROOT, which won't exist
-  # inside the container.
-  # in the Snakefile, so here we check if the bad env vars are set and error out
-  # with a better error message.
+  conda_prefix <- Sys.getenv("CONDA_PREFIX")
+  if (conda_prefix == "" || !grepl("snakemake", conda_prefix, fixed=TRUE)) {
+    rlang::inform(paste0(
+      "Checking for bad env vars outside of a snakemake-managed conda ",
+      "environment, but this check is mainly intended for snakemake-managed ",
+      "conda environments"
+    ),
+    .frequency = "regularly", .frequency_id = "env_var_not_in_snakemake"
+    )
+  }
+  path1 <- .libPaths()[1]
+
+  conda_basedir <- basename(conda_prefix)
   known_bad <- c(
-    "ARROW_THIRDPARTY_DEPENDENCY_DIR",
-    "LIBARROW_BINARY",
-    "ARROW_HOME",
     "RENV_PATHS_ROOT",
     "R_LIBS",
+    "R_LIBS_USER",
     "R_LIBS_SITE"
   )
-  # R_LIBS_USER is not a problem here because it gets auto-set to something like
-  # ~/R/x86_64-conda-linux-gnu-library/4.0, which is fine because '~' becomes
-  # the project directory, and then it isn't used.
-
-  in_singularity <- Sys.getenv("SINGULARITY_NAME") != ""
-  bad_vars_set <- Sys.getenv(known_bad) != ""
-  if (in_singularity && any(bad_vars_set)) {
-    err_msg <- paste0(
-      "\n\n",
-      "Path environment variables are set that should not be. These cause problems ",
-      "when running the code in a container.\n",
-      "Please re-run Snakemake with\n",
-      "snakemake --use-conda --use-singularity --singularity-args='--cleanenv'\n\n",
-      "Problem vars: ", paste(known_bad[bad_vars_set], collapse = ", "), "\n\n"
-    )
-    stop(err_msg, call. = FALSE)
+  bad_var_values <- Sys.getenv(known_bad)
+  bad_vars_set <- (bad_var_values != "") & (!startsWith(Sys.getenv(known_bad), getwd()))
+  if (!grepl(conda_basedir, path1, fixed=TRUE)) {
+    msg <- "R .libPaths() path must be local to this Snakemake-managed conda environment"
+    if (any(bad_vars_set)) {
+      msg <- paste0(
+        msg, "\n  The issue may be caused by these environment variables:\n  ",
+        paste(known_bad[bad_vars_set], bad_var_values[bad_vars_set], sep="=", collapse=" ")
+      )
+    }
+    stop(msg, call. = FALSE)
   }
   invisible(NULL)
 }
+
+#' Define merge specifications
+#'
+#' Same as powerjoin::check_specs(), but stricter.
+#'
+merge_specs <- function(x,
+    duplicate_keys_left = c("abort", "ignore", "inform", "warn"),
+    duplicate_keys_right = c("abort", "ignore", "inform", "warn"),
+    unmatched_keys_left = c("abort", "ignore", "inform", "warn"),
+    unmatched_keys_right = c("abort", "ignore", "inform", "warn"),
+    missing_key_combination_left = c("ignore", "inform", "warn", "abort"),
+    missing_key_combination_right = c("ignore", "inform", "warn", "abort"),
+    grouped_input = c("abort", "ignore", "inform", "warn"),
+    na_keys = c("abort", "ignore", "inform", "warn")
+  ) {
+  if (!missing(x)) {
+    stop("All arguments to merge_specs must be named", call.=FALSE)
+  }
+  duplicate_keys_left <- match.arg(duplicate_keys_left)
+  duplicate_keys_right <- match.arg(duplicate_keys_right)
+  unmatched_keys_left <- match.arg(unmatched_keys_left)
+  unmatched_keys_right <- match.arg(unmatched_keys_right)
+  missing_key_combination_left <- match.arg(missing_key_combination_left)
+  missing_key_combination_right <- match.arg(missing_key_combination_right)
+  grouped_input <- match.arg(grouped_input)
+  na_keys <- match.arg(na_keys)
+
+  out <- powerjoin::check_specs(
+    # These are never accepted:
+    implicit_keys = "abort",
+    column_conflict = "abort",
+    inconsistent_factor_levels = "abort",
+    inconsistent_type = "abort",
+    # These are errors by default, but can be changed:
+    duplicate_keys_left = duplicate_keys_left,
+    duplicate_keys_right = duplicate_keys_right,
+    unmatched_keys_left = unmatched_keys_left,
+    unmatched_keys_right = unmatched_keys_right,
+    grouped_input = grouped_input,
+    na_keys = na_keys,
+    # These are ignored by default (same as powerjoin):
+    missing_key_combination_left = missing_key_combination_left,
+    missing_key_combination_right = missing_key_combination_right
+  )
+  return(out)
+}
+
+
+#' Start logging output
+#'
+#' Note that you need to call sink() to stop logging. See examples below.
+#' @examples
+#' log_all_output("test.log")
+#' print(iris)
+#' message("hello")
+#' sink(type="output")
+#' sink(type="message")
+log_all_output <- function(log_file, append = FALSE) {
+  # Accomodate just passing snakemake@log:
+  # (note: not have not implemented snakemake's split stderr and stdout)
+  if (rlang::is_bare_list(log_file, n = 1L)) {
+    log_file <- log_file[[1L]]
+  }
+  # Accomodate absent logfile
+  if (identical(log_file, "")) {
+    return(invisible(NULL))
+  }
+  stopifnot(
+    rlang::is_bare_character(log_file, n = 1L),
+    rlang::is_bare_logical(append, n = 1L),
+    ! dir.exists(log_file)
+  )
+  if (isTRUE(append)) {
+    open_type <- "at"
+  } else {
+    open_type <- "wt"
+  }
+
+  file_con <- file(log_file, open = open_type)
+  # append=TRUE here because opening the file already removed existing output
+  # if append=FALSE above.
+  sink(file_con, append=TRUE, type="output")
+  sink(file_con, append=TRUE, type="message")
+
+  invisible(file_con)
+}
+
+
+
+
+# Check every time:
+check_for_bad_env_vars()
 
 # We want this file to run even if no R packages are installed (because we use
 # it in setup_r_library.R), so guard all of these basic setup commands:
@@ -1157,6 +1310,9 @@ if (requireNamespace("magrittr", quietly=TRUE)) {
 }
 if (requireNamespace("rlang", quietly=TRUE)) {
   `%||%` <- rlang::`%||%`
+  # Make all errors rlang errors
+  globalCallingHandlers(NULL)
+  rlang::global_entrace()
 }
 if (requireNamespace("here", quietly=TRUE)) {
   source(here::here("code/kdw_package_code.r"))
@@ -1166,13 +1322,17 @@ if (requireNamespace("here", quietly=TRUE)) {
   }
 }
 
-elapsed_time_str <- function(start_time) {
-  elapsed <- Sys.time() - start_time
-  paste(round(elapsed, 2), attr(elapsed, "units"))
-}
+CRS_LONGLAT_int <- 4326L # https://epsg.io/4326
+CRS_PROJECT_int <- 6350L # https://epsg.io/6350
+
 
 options(
   stringsAsFactors = FALSE,
+  warnPartialMatchArgs = TRUE,
+  warnPartialMatchAttr = TRUE,
+  warnPartialMatchDollar = TRUE,
+  rlang_backtrace_on_error = "full",
+  max.print = 100,
   warn = max(1, getOption("warn")),
   scipen = max(5, getOption("scipen"))
 )

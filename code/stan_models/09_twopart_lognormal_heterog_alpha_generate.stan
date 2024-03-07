@@ -75,7 +75,7 @@ transformed data {
   int K_qr = Kc + 1;
 
   vector[N] log_price = log(price);
-  real shift_amount_times_price_min_times_T = shift_amount * min(price) * time_period_hr;
+  vector[N] price_times_T = price * time_period_hr;
 
   // Additional params, sometimes useful in the generated block:
   // empty arrays and vec so we can match function signatures exactly.
@@ -110,12 +110,16 @@ generated quantities {
 
   vector[N] leak_size_expect;
   vector[N] leak_size_draw;
+
+  // Note that the prob_leak output is not actually used for this model in
+  // outcomes_analysis.py -- it was for a previous model -- but keeping it around
+  // is easier than changing all the code.
   vector[N] prob_leak;
   vector[N] prob_size_above_threshold;
 
   // These are the A_i and alpha in the stan model, but adding more descriptive
   // names here for saving.
-  vector[N] cost_param_A = inv_logit(temp_obs_inter + Xc * b_obs) * shift_amount_times_price_min_times_T;
+  vector[N] cost_param_A;
   vector[N] cost_param_alpha;
 
   {
@@ -124,13 +128,38 @@ generated quantities {
     // See that file for details.
     vector[N_obs] mu_y_obs = temp_y_inter + Xc_obs * b_y;
     vector[N] mu_y_all = temp_y_inter + Xc * b_y;
+
     leak_size_draw = to_vector(lognormal_rng(mu_y_all, sigma_y)) + shift_amount;
+
     real smear_y = mean(exp(y_shift_log - mu_y_obs));
     // Calculate the expectation of e * p, re-adding the shift_amount
     leak_size_expect = exp(mu_y_all) * smear_y + shift_amount;
+    vector[N] leak_private_value_expect = price_times_T .* leak_size_expect;
+    cost_param_A = inv_logit(temp_obs_inter + Xc * b_obs) .* leak_private_value_expect;
+
+    // There's a hassle where, if leak_size_draw is much smaller than
+    // leak_size_expect, the probability will be malformed (because A_i will be
+    // outside the acceptable range). This happens quite rarely (about 0.00058%).
+    int count_replaced = 0;
+    int replaced_draw_bool = 0;
+    for (i in 1:N) {
+      replaced_draw_bool = 0;
+      while (cost_param_A[i] > leak_size_draw[i] * price_times_T[i]) {
+        replaced_draw_bool = 1;
+        leak_size_draw[i] = lognormal_rng(mu_y_all[i], sigma_y) + shift_amount;
+      }
+      count_replaced = count_replaced + replaced_draw_bool;
+    }
+    if (count_replaced > 0) {
+      // Important: we thin out the MCMC draws after this, so the total number
+      // of values printed can be greater than the value that actually matter.
+      print("  INFO: replaced leak_size_draw well pad count: ", count_replaced);
+    }
+
     vector[N] inv_alpha = -inv_logit(temp_alpha_inter + Xc * b_alpha);
     cost_param_alpha = inv(inv_alpha);
-    prob_leak = (time_period_hr * leak_size_expect .* price ./ cost_param_A) ^ inv_alpha;
+    // See note above -- prob_leak is not used.
+    prob_leak = (leak_private_value_expect ./ cost_param_A) ^ inv_alpha;
 
     // Note: `detect_threshold_shifted` is a single real number. For different
     // detect_threshold_shifted values, create different variables.

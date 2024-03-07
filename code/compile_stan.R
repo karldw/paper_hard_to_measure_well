@@ -1,11 +1,16 @@
 options(warn = 2)
+suppressMessages(
+  here::i_am("code/compile_stan.R", uuid="9f61a9f3-519a-4abc-acc5-03c3c98d9d7b")
+)
 source(here::here("code/shared_functions.r"))
 source(here::here("code/stan_helper_functions.r"))
-check_cmdstan() # not the same as cmdstanr::check_cmdstan_toolchain
+check_cmdstan_path()
 
+print(here::here("code/stan_models"))
+# Note that setup_cmdstan.R has set some cpp flags.
 m = cmdstanr::cmdstan_model(
   snakemake@input[[1]],
-  include_paths=here::here("code/stan_models"),
+  stanc_options=list("O1"),
   quiet=FALSE,
-  cpp_options=list(PRECOMPILED_HEADERS = "false")
+  force_recompile=TRUE
 )

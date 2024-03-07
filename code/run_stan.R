@@ -1,31 +1,68 @@
 # Run one stan model
 # Driven by snakemake. See stan models in code/stan_models/
 
+suppressMessages(
+  here::i_am("code/run_stan.R", uuid="01458a06-b77f-4e52-bc41-3a0b7fe0a5cd")
+)
 
 
 source(here::here("code/shared_functions.r"))
 source(here::here("code/stan_helper_functions.r"))
-source(here::here("code/distribution_model_data_prep.r"))
+source(here::here("code/model_data_prep.r"))
+
+if (!exists("snakemake")) {
+  warning("using placeholder snakemake")
+
+  snakemake <- SnakemakePlaceholder(
+    input = list(
+      measurements = here::here("data/generated/methane_measures/matched_wells_all.parquet"),
+      stan_file = here::here("code/stan_models/09_twopart_lognormal_heterog_alpha_model.stan"),
+      data_prep_script = here::here("code/model_data_prep.r"),
+      compiled = here::here("code/stan_models/09_twopart_lognormal_heterog_alpha_model"),
+      r_lib = here::here("scratch/snakemake_flags/setup_r_library"),
+      cmdstan = here::here("scratch/snakemake_flags/setup_cmdstan")
+    ),
+    output = list(here::here("scratch/stan_fits/main_spec/09_twopart_lognormal_heterog_alpha-period_8760_hours/model_fit.rds")),
+    params = list(),
+    log = list(""),
+    wildcards = list(
+      robustness_spec = "main_spec/",
+      model_name = "09_twopart_lognormal_heterog_alpha",
+      prior_only = "",
+      bootstrap = "",
+      time_period = "-period_8760_hours"
+    ),
+    resources = list(tmpdir = "/tmp", attempt_count = 1, mem_mb=4000),
+    threads = 1L
+  )
+}
+
+log_all_output(snakemake@log)
+
+
 BOOTSTRAP_ITER <- 100 # If we're bootstrapping, how many iter?
 # 50 for good accuracy with reasonable re-run times, but ultimately ~100 is preferable
 
-options(scipen=10, warn=1, mc.cores=snakemake@threads)
+options(mc.cores=snakemake@threads)
 set.seed(7)
 mem_limit <- snakemake@resources[['mem_mb']] %||% NA_integer_
 try(memory_limit(mem_limit)) # Sometimes fails on Windows?
 
 # Check paths and cmdstan
 fs::dir_create(unique(fs::path_dir(unlist(snakemake@output))))
-check_cmdstan()
+check_cmdstan_path()
 
 model_name <- snakemake@wildcards[["model_name"]]
 stan_file <- snakemake@input[["stan_file"]]
+robustness_spec <- snakemake@wildcards[["robustness_spec"]] %||% stop("need robustness_spec")
 
 # Load data
 sdata <- snakemake@input[["measurements"]] %>%
   prep_measurement_data() %>%
-  purrr::pluck("aviris_all") %>%
-  prep_custom_model_data(model_name = model_name)
+  prep_custom_model_data(
+    model_name = model_name,
+    robustness_spec_str = robustness_spec
+  )
 
 # Figure out what kind of operation we're doing.
 # a. Standard fitting (run stan model, record parameter draws)
@@ -74,9 +111,12 @@ if (operate_mode == "generate") {
   # We're going to use future-based parallelism to read the generated files
   # (Stan mananges its own parallel execution). Future will choose the number of
   # threads based on mc.cores, which we set above.
-  # multicore here is fine, since we're running this in a linux singularity
-  # container (multicore doesn't work on windows (excl WSL) or in rstudio)
-  future::plan("multicore")
+  # multicore here might run into issues on windows (excl WSL) or in rstudio)
+  if (future::supportsMulticore()) {
+    future::plan("multicore")
+  } else {
+    future::plan("sequential")
+  }
 
   existing_fit <- readRDS(snakemake@input[["existing_fit"]])[["fit"]]
   csv_files <- existing_fit$output_files()
@@ -120,10 +160,12 @@ if (operate_mode == "generate") {
   # We'll thin draws later, but the R-hat checks don't pass if we thin here.
   arg_list <- list(
     algorithm = "sampling",
-    iter_warmup = 500,
-    iter_sampling = 400,
+    # Note: these very high counts are slow. They're sufficient (but probably
+    # not necessary) to avoid R-hat errors in stan.
+    iter_warmup = 1000,
+    iter_sampling = 3000,
     show_messages = FALSE,
-    adapt_delta = 0.9,
+    adapt_delta = get_adapt_delta(snakemake@resources[["attempt_count"]]),
     refresh = 0,
     validate_csv = FALSE, # see cmdstanr #280
     chains = BOOTSTRAP_ITER # number of bootstrap iterations
@@ -144,9 +186,11 @@ if (operate_mode == "generate") {
   # Otherwise, we're running HMC to fit the model.
   # Can add args here, if necessary, to pass to the cmdstanr methods
   arg_list <- list(
+    iter_warmup = 1000,
+    iter_sampling = 3000,
     # avoid expensive mistakes where we hit 100% max treedepth at max_treedepth = 10
     max_treedepth = 9,
-    adapt_delta = 0.9,
+    adapt_delta = get_adapt_delta(snakemake@resources[["attempt_count"]]),
     algorithm = "sampling"
   )
   generate_row_count <- -1 # -1 signals "not generate mode"
@@ -159,10 +203,40 @@ compiled <- cmdstanr::cmdstan_model(stan_file, include_paths=dirname(stan_file))
 fit <- fit_stan_model(model = compiled, sdata = sdata, args = arg_list)
 # In generate mode, the program either errors out or gives results.
 # In modeling mode, need to actually check the HMC diagnostics.
+
+if (robustness_spec == "main_spec/") {
+  if (operate_mode == "bootstrap") {
+    should_compare_chains <- FALSE
+  } else {
+    should_compare_chains <- TRUE
+  }
+  skip_checks <- character(0)
+} else {
+  should_compare_chains <- FALSE
+  skip_checks <- "rhat"
+}
+
 successful_fit <- (operate_mode == "generate") || (sdata$prior_only) ||
-  check_cmdstan_diagnostics(fit, compare_chains = operate_mode != "bootstrap")
+  check_cmdstan_diagnostics(
+    fit,
+    compare_chains = should_compare_chains,
+    skip_checks = skip_checks
+  )
 
 if (successful_fit) {
   # Guard against improperly using the results if they're wrong.
   save_stan_results(fit, output_files, generate_row_count = generate_row_count)
+
+  # Generate depends on the CSVs from running the model, so need to clean both
+  # at the end of the generate step.
+  if (operate_mode == "generate") {
+    clean_stan_csvs(model_fit = existing_fit, generate_fit = fit)
+  }
+}
+
+
+# If we're logging, stop
+if (sink.number() > 0) {
+  sink(file=NULL, type="output")
+  sink(file=NULL, type="message")
 }

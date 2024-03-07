@@ -1,7 +1,9 @@
 
-library(here)
+suppressMessages(
+  here::i_am("code/plot_well_operator_stats.R", uuid="69e06e85-ee2b-4c59-8bdb-1afd55468de6")
+)
 source(here::here("code/shared_functions.r"))
-source(here::here("code/distribution_model_data_prep.r"))
+source(here::here("code/model_data_prep.r"))
 # SOURCE_DATE_EPOCH asks save_plot to change the timestamp in the file
 options(scipen=99, SOURCE_DATE_EPOCH=0)
 
@@ -52,12 +54,16 @@ load_crosswalk_for_relevant_wells <- function(measurement_file, crosswalk_file) 
   stopifnot(length(measurement_file) == 1, length(crosswalk_file) == 1)
   # Load the well pad IDs for the wells that were flown over.
   well_pads <- prep_measurement_data(measurement_file) %>%
-    purrr::chuck("aviris_all") %>%
     dplyr::select(well_pad_id)
   # Subset the crosswalk for those wells, checking that the well pads are unique
   # and all rows in the `well_pads` data match
   well_pad_crosswalk <- arrow::read_parquet(crosswalk_file) %>%
-    safejoin::safe_inner_join(well_pads, by="well_pad_id", check="BCVNLT")
+    powerjoin::power_inner_join(well_pads, by="well_pad_id",
+      check=merge_specs(
+        duplicate_keys_left = "ignore",
+        unmatched_keys_left = "ignore",
+      )
+    )
 
   well_pad_crosswalk
 }
@@ -86,7 +92,7 @@ if (! exists("snakemake")) {
       headers = "data/generated/production/well_headers/",
       # prod = "data/generated/production/monthly_production/",
       well_pad_crosswalk = "data/generated/production/well_pad_crosswalk_1970-2018.parquet",
-      matched_leakage = "data/generated/methane_measures/matched_wells_all.rds"
+      matched_leakage = "data/generated/methane_measures/matched_wells_all.parquet"
     ),
     output = list(
       well_pads_per_operator_cdf  = "graphics/well_pads_per_operator_cdf.pdf",

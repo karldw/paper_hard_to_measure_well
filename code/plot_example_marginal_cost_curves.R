@@ -1,4 +1,6 @@
-library(here)
+suppressMessages(
+  here::i_am("code/plot_example_marginal_cost_curves.R", uuid="29ef8c6f-54bd-4368-b10d-fce555cf0868")
+)
 options(warn=2, scipen=10)
 `%>%` <- magrittr::`%>%`
 

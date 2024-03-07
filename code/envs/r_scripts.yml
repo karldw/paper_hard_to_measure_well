@@ -1,168 +1,49 @@
-
+# Install most of the R packages through conda-forge, because this avoids
+# issues of system dependencies (and associated hours of debug time).
+# We're going to install some packages separately as well, since they're not
+# available in conda-forge. (See setup_r_library.R)
+# Note that Anaconda's `r` channel is very old.
 channels:
     - conda-forge
     - defaults
 dependencies:
-    # These are our R direct dependencies.
-    # Note that Anaconda's `r` channel is very old.
-    # renv will take care of the rest of the R packages
-    # (We do it this way because conda-forge doesn't have all the R packages I
-    # want, so I end up having to do post-installs, which is messy. Easier to
-    # let renv manage everything.)
-    - conda-forge::r-base=4.0.5
-    - conda-forge::r-renv=0.14.0
-    - conda-forge::curl=7.78.0
-    # System dependencies for R packages:
-    # (I'm not sure all of these are necessary)
-
-    # Arrow
-    - conda-forge::cmake=3.21.2
-
-    # stan:
-    - conda-forge::cmdstan=2.27.0
-    - conda-forge::tbb=2021.3.0
-    - conda-forge::tbb-devel=2021.3.0
-
-    # sf:
-    - conda-forge::geos=3.9.1
-    - conda-forge::libgdal=3.3.2
-    - conda-forge::proj=8.0.1
-    - conda-forge::udunits2=2.2.27.27
-
-
-    # Other / indirect deps that we want to pin
-    - conda-forge::_libgcc_mutex=0.1=conda_forge
-    - conda-forge::_openmp_mutex=4.5=1_llvm
-    - conda-forge::_r-mutex=1.0.1=anacondar_1
-    - conda-forge::binutils_impl_linux-64=2.36.1=h193b22a_2
-    - conda-forge::binutils_linux-64=2.36=hf3e587d_1
-    - conda-forge::blas=2.111=openblas
-    - conda-forge::blas-devel=3.9.0=11_linux64_openblas
-    - conda-forge::boost-cpp=1.74.0=h312852a_4
-    - conda-forge::bwidget=1.9.14=ha770c72_0
-    - conda-forge::bzip2=1.0.8=h7f98852_4
-    - conda-forge::c-ares=1.17.2=h7f98852_0
-    - conda-forge::ca-certificates=2021.5.30=ha878542_0
-    - conda-forge::cairo=1.16.0=h6cf1ce9_1008
-    - conda-forge::cfitsio=3.470=hb418390_7
-    - conda-forge::expat=2.4.1=h9c3ff4c_0
-    - conda-forge::font-ttf-dejavu-sans-mono=2.37=hab24e00_0
-    - conda-forge::font-ttf-inconsolata=3.000=h77eed37_0
-    - conda-forge::font-ttf-source-code-pro=2.038=h77eed37_0
-    - conda-forge::font-ttf-ubuntu=0.83=hab24e00_0
-    - conda-forge::fontconfig=2.13.1=hba837de_1005
-    - conda-forge::fonts-conda-ecosystem=1=0
-    - conda-forge::fonts-conda-forge=1=0
-    - conda-forge::freetype=2.10.4=h0708190_1
-    - conda-forge::freexl=1.0.6=h7f98852_0
-    - conda-forge::fribidi=1.0.10=h36c2ea0_0
-    - conda-forge::gcc_impl_linux-64=9.4.0=h03d3576_9
-    - conda-forge::gcc_linux-64=9.4.0=h391b98a_1
-    - conda-forge::geotiff=1.7.0=h4f31c25_0
-    - conda-forge::gettext=0.19.8.1=h73d1719_1008
-    - conda-forge::gfortran_impl_linux-64=9.4.0=h0003116_9
-    - conda-forge::gfortran_linux-64=9.4.0=hf0ab688_1
-    - conda-forge::giflib=5.2.1=h36c2ea0_2
-    - conda-forge::gmp=6.2.1=h58526e2_0
-    - conda-forge::graphite2=1.3.13=h58526e2_1001
-    - conda-forge::gsl=2.7=he838d99_0
-    - conda-forge::gxx_impl_linux-64=9.4.0=h03d3576_9
-    - conda-forge::gxx_linux-64=9.4.0=h0316aca_1
-    - conda-forge::harfbuzz=2.9.1=h83ec7ef_1
-    - conda-forge::hdf4=4.2.15=h10796ff_3
-    - conda-forge::hdf5=1.12.1=nompi_h2750804_100
-    - conda-forge::icu=68.1=h58526e2_0
-    - conda-forge::jbig=2.1=h7f98852_2003
-    - conda-forge::jpeg=9d=h36c2ea0_0
-    - conda-forge::json-c=0.15=h98cffda_0
-    - conda-forge::kealib=1.4.14=h87e4c3c_3
-    - conda-forge::kernel-headers_linux-64=2.6.32=he073ed8_14
-    - conda-forge::krb5=1.19.2=hcc1bbae_2
-    - conda-forge::lcms2=2.12=hddcbb42_0
-    - conda-forge::ld_impl_linux-64=2.36.1=hea4e1c9_2
-    - conda-forge::lerc=2.2.1=h9c3ff4c_0
-    - conda-forge::libblas=3.9.0=11_linux64_openblas
-    - conda-forge::libcblas=3.9.0=11_linux64_openblas
-    - conda-forge::libcurl=7.78.0=h2574ce0_0
-    - conda-forge::libdap4=3.20.6=hd7c4107_2
-    - conda-forge::libdeflate=1.7=h7f98852_5
-    - conda-forge::libedit=3.1.20191231=he28a2e2_2
-    - conda-forge::libev=4.33=h516909a_1
-    - conda-forge::libffi=3.4.2=h9c3ff4c_4
-    - conda-forge::libgcc-devel_linux-64=9.4.0=hd854feb_9
-    - conda-forge::libgcc-ng=11.2.0=h1d223b6_9
-    - conda-forge::libgfortran-ng=11.2.0=h69a702a_9
-    - conda-forge::libgfortran5=11.2.0=h5c6108e_9
-    - conda-forge::libglib=2.68.4=h174f98d_1
-    - conda-forge::libgomp=11.2.0=h1d223b6_9
-    - conda-forge::libiconv=1.16=h516909a_0
-    - conda-forge::libkml=1.3.0=h238a007_1014
-    - conda-forge::liblapack=3.9.0=11_linux64_openblas
-    - conda-forge::liblapacke=3.9.0=11_linux64_openblas
-    - conda-forge::libnetcdf=4.8.1=nompi_hb3fd0d9_101
-    - conda-forge::libnghttp2=1.43.0=h812cca2_1
-    - conda-forge::libopenblas=0.3.17=pthreads_h8fe5266_1
-    - conda-forge::libpng=1.6.37=h21135ba_2
-    - conda-forge::libpq=13.3=hd57d9b9_0
-    - conda-forge::librttopo=1.1.0=h1185371_6
-    - conda-forge::libsanitizer=9.4.0=h79bfe98_9
-    - conda-forge::libspatialite=5.0.1=h8694cbe_6
-    - conda-forge::libssh2=1.10.0=ha56f1ee_2
-    - conda-forge::libstdcxx-devel_linux-64=9.4.0=hd854feb_9
-    - conda-forge::libstdcxx-ng=11.2.0=he4da1e4_9
-    - conda-forge::libtiff=4.3.0=hf544144_1
-    - conda-forge::libuuid=2.32.1=h7f98852_1000
-    - conda-forge::libuv=1.42.0=h7f98852_0
-    - conda-forge::libv8=8.9.83=ha720a15_0
-    - conda-forge::libwebp-base=1.2.1=h7f98852_0
-    - conda-forge::libxcb=1.13=h7f98852_1003
-    - conda-forge::libxml2=2.9.12=h72842e0_0
-    - conda-forge::libzip=1.8.0=h4de3113_1
-    - conda-forge::libzlib=1.2.11=h36c2ea0_1013
-    - conda-forge::llvm-openmp=12.0.1=h4bd325d_1
-    - conda-forge::lz4-c=1.9.3=h9c3ff4c_1
-    - conda-forge::make=4.3=hd18ef5c_1
-    - conda-forge::ncurses=6.2=h58526e2_4
-    - conda-forge::openblas=0.3.17=pthreads_h4748800_1
-    - conda-forge::openjpeg=2.4.0=hb52868f_1
-    - conda-forge::openssl=1.1.1l=h7f98852_0
-    - conda-forge::pandoc=2.14.2=h7f98852_0
-    - conda-forge::pango=1.48.10=hb8ff022_1
-    - conda-forge::pcre=8.45=h9c3ff4c_0
-    - conda-forge::pcre2=10.37=h032f7d1_0
-    - conda-forge::pip=21.2.4=pyhd8ed1ab_0
-    - conda-forge::pixman=0.40.0=h36c2ea0_0
-    - conda-forge::poppler=21.09.0=h0e1ea10_1
-    - conda-forge::poppler-data=0.4.11=hd8ed1ab_0
-    - conda-forge::postgresql=13.3=h2510834_0
-    - conda-forge::pthread-stubs=0.4=h36c2ea0_1001
-    - conda-forge::python=3.9.7=hb7a2778_3_cpython
-    - conda-forge::python_abi=3.9=2_cp39
-    - conda-forge::readline=8.1=h46c0cb4_0
-    - conda-forge::rhash=1.4.1=h7f98852_0
-    - conda-forge::sed=4.8=he412f7d_0
-    - conda-forge::setuptools=58.0.4=py39hf3d152e_2
-    - conda-forge::sqlite=3.36.0=h9cd32fc_2
-    - conda-forge::sysroot_linux-64=2.12=he073ed8_14
-    - conda-forge::tiledb=2.3.4=he87e0bf_0
-    - conda-forge::tk=8.6.11=h27826a3_1
-    - conda-forge::tktable=2.10=hb7b940f_3
-    - conda-forge::tzcode=2021a=h7f98852_2
-    - conda-forge::tzdata=2021b=he74cb21_0
-    - conda-forge::wheel=0.37.0=pyhd8ed1ab_1
-    - conda-forge::xerces-c=3.2.3=h9d8b166_2
-    - conda-forge::xorg-kbproto=1.0.7=h7f98852_1002
-    - conda-forge::xorg-libice=1.0.10=h7f98852_0
-    - conda-forge::xorg-libsm=1.2.3=hd9c2040_1000
-    - conda-forge::xorg-libx11=1.7.2=h7f98852_0
-    - conda-forge::xorg-libxau=1.0.9=h7f98852_0
-    - conda-forge::xorg-libxdmcp=1.1.3=h7f98852_0
-    - conda-forge::xorg-libxext=1.3.4=h7f98852_1
-    - conda-forge::xorg-libxrender=0.9.10=h7f98852_1003
-    - conda-forge::xorg-libxt=1.2.1=h7f98852_2
-    - conda-forge::xorg-renderproto=0.11.1=h7f98852_1002
-    - conda-forge::xorg-xextproto=7.3.0=h7f98852_1002
-    - conda-forge::xorg-xproto=7.0.31=h7f98852_1007
-    - conda-forge::xz=5.2.5=h516909a_1
-    - conda-forge::zlib=1.2.11=h36c2ea0_1013
-    - conda-forge::zstd=1.5.0=ha95c52a_0
+    # These are our R direct dependencies, unless noted.
+    - r-base=4.1.3
+    - r-BH=1.75.0-0 # indirect dep of nngeo
+    - r-arrow=5.0.0
+    - r-curl=4.3.2
+    - r-data.table=1.14.0
+    - r-dplyr=1.0.7
+    - r-fs=1.5.0
+    - r-furrr=0.2.3
+    - r-future=1.21.0
+    - r-ggplot2=3.3.5
+    - r-ggpointdensity=0.1.0
+    - r-glue=1.6.2
+    - r-gt=0.3.0
+    - r-here=1.0.1
+    - r-igraph=1.2.6
+    - r-jsonlite=1.7.2
+    - r-lubridate=1.7.10
+    - r-lwgeom=0.2-11  # dep of nngeo
+    - r-magrittr=2.0.1
+    - r-matrixStats=0.60.0
+    - r-nabor=0.5.0  # dep of nngeo
+    - r-posterior=1.4.1
+    - r-processx=3.5.2
+    - r-purrr=1.0.0
+    - r-RColorBrewer=1.1-2
+    - r-RcppEigen=0.3.3.9.1 # indirect dep of nngeo
+    - r-readxl=1.3.1
+    - r-remotes=2.4.2
+    - r-rlang=1.1.0
+    - r-scales=1.1.1
+    - r-sf=1.0-12
+    - r-stringr=1.4.0
+    - r-tibble=3.1.3
+    - r-tidyr=1.1.3
+    - r-tidyselect=1.1.1
+    - r-units=0.7-2
+    - r-xml2=1.3.2
+    # - conda-forge::compilers # to compile stan models
+    - cmdstan=2.32.2 # must match version_info_cmdstan.txt

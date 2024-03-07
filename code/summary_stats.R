@@ -1,13 +1,16 @@
+suppressMessages(
+  here::i_am("code/summary_stats.R", uuid="d35c83a9-af54-4dc8-a035-d5ded6531bb1")
+)
 
-library(here)
 library(ggplot2)
 suppressWarnings(loadNamespace("lubridate")) # avoid https://github.com/tidyverse/lubridate/issues/965
 
 source(here::here("code/shared_functions.r"))
-source(here::here("code/distribution_model_data_prep.r"))
+source(here::here("code/model_data_prep.r"))
 
 loadNamespace("sf")
 options(scipen=99)
+
 
 count_gas_completions_by_size <- function(header_files) {
   # Note: cut requires size cuts to cover the whole domain of the variable being
@@ -46,13 +49,16 @@ count_gas_completions_by_size <- function(header_files) {
 
 get_pretty_varnames <- function(orig_varnames) {
   # data might have other variables, but we only want to display these.
+  # (variables in the list below but not in the data will not raise an error)
   all_pretty_vars <- c(
     age_yr = "Age (yr)",
     gas_avg_mcfd = "Gas (mcfd)",
     oil_avg_bbld = "Oil (bbld)",
     detect_emiss_pct = "Detect leak (\\%)",
     emiss_kg_hr = "Leak size (kg/hr)",
-    gas_price_per_mcf = "Gas price (\\textdollar/mcf)"
+    gas_price_per_mcf = "Gas price (\\textdollar/mcf)",
+    distance_to_nearest_pad_km = "Dist. to next pad (km)",
+    tot_count_wells_within_10km = "N wells within 10 km"
   )
   all_pretty_vars[intersect(names(all_pretty_vars), orig_varnames)]
 }
@@ -72,6 +78,13 @@ add_emiss_vars <- function(df) {
 }
 
 
+convert_km_to_nearest_well_pad <- function(df) {
+  if ("distance_to_nearest_pad_m" %in% names(df)) {
+    df <- dplyr::mutate(df, distance_to_nearest_pad_km = distance_to_nearest_pad_m / 1000)
+  }
+  df
+}
+
 summary_stats_wells <- function(df, output_file) {
   summary_stats <- list(
     mean = mean_,
@@ -88,7 +101,9 @@ summary_stats_wells <- function(df, output_file) {
   stopifnot(all(grepl("^[a-z0-9A-Z]+$", names(summary_stats), perl=TRUE)))
   cols_to_format <- names(summary_stats) %>% setdiff("n")
 
-  df %<>% add_emiss_vars()
+  df %<>% add_emiss_vars() %>%
+    convert_km_to_nearest_well_pad()
+
   pretty_vars <- get_pretty_varnames(names(df))
 
   df_sum <- df %>%
@@ -114,12 +129,12 @@ summary_stats_wells <- function(df, output_file) {
   x <- df_sum %>%
     gt::gt() %>%
     gt::fmt_percent(
-      columns = cols_to_format,
+      columns = !!cols_to_format,
       rows = var == "detect_emiss",
       locale="en_US",
     ) %>%
     gt::fmt_number(
-      columns = cols_to_format,
+      columns = !!cols_to_format,
       rows = var %in% names(pretty_vars),
       decimals = 1,
       sep_mark = ""
@@ -161,7 +176,13 @@ load_all_wells <- function(prod_dir, header_dir, well_pad_crosswalk) {
   # entity_id is assigned by drillinginfo
   # well_pad_id is assigned by us, and could change, so don't hardcode values
   well_pad_mapping <- well_pad_crosswalk %>%
-    arrow::read_parquet(col_select=c("entity_id", "well_pad_id",  "aapg_geologic_province")) %>%
+    arrow::read_parquet(col_select=c(
+      "entity_id", # assigned by drillinginfo
+      "well_pad_id", # assigned in group_into_well_pads.R
+      "aapg_geologic_province",
+      "distance_to_nearest_pad_m",  # calculated in group_into_well_pads.R
+      "tot_count_wells_within_10km" # calculated in group_into_well_pads.R
+    )) %>%
     dplyr::rename(basin = aapg_geologic_province)
 
   well_pad_info <- arrow::open_dataset(header_dir) %>%
@@ -170,16 +191,22 @@ load_all_wells <- function(prod_dir, header_dir, well_pad_crosswalk) {
     dplyr::filter(!is.na(first_prod_date)) %>%
     dplyr::mutate(age_yr = as.numeric(!!as_of_date - first_prod_date) / 365.25) %>%
     dplyr::select(-first_prod_date) %>%
-    # 1:1 join (U and V), no column conflicts (C), type of "by" must be the same
-    # (T), and all rows of right side must have a match (N)
-    safejoin::safe_inner_join(monthly_prod, by="entity_id", check="U V C T N") %>%
+    # 1:1 join, no column conflicts, type of "by" must be the same, and all
+    # rows of right side must have a match
+    powerjoin::power_inner_join(monthly_prod, by="entity_id", check=merge_specs(unmatched_keys_left="ignore")) %>%
     # 1:M join (U), no column conflicts (C), type of "by" must be the same (T)
     # We don't have all rows matching because:
     # - we filtered some wells by production above
     # - wells older than 1970 shouldn't show up in the well pad
     # - a small number of wells newer than 1970 aren't showing up
     # https://github.com/karldw/methane_abatement/issues/51
-    safejoin::safe_inner_join(well_pad_mapping, by="entity_id", check="U C T") %>%
+    powerjoin::power_inner_join(well_pad_mapping, by="entity_id",
+      check=merge_specs(
+        duplicate_keys_right = "ignore",
+        unmatched_keys_left = "ignore",
+        unmatched_keys_right = "ignore",
+      )
+    ) %>%
     # Harmonize basin name after the merge because the function needs a `state`
     # column
     harmonize_basin_name(group_small_CA_basins=TRUE) %>%
@@ -202,6 +229,8 @@ load_all_wells <- function(prod_dir, header_dir, well_pad_crosswalk) {
     gas_avg_mcfd = sum_(daily_avg_gas),
     age_yr = mean_(age_yr),
     basin = min(basin),
+    distance_to_nearest_pad_m = mean_(distance_to_nearest_pad_m),
+    tot_count_wells_within_10km = mean_(tot_count_wells_within_10km),
     .groups="drop"
   )
   # Note: could do histograms / sparklines of results here.
@@ -221,9 +250,13 @@ count_gas_vs_nongas_wells <- function(prod_dir, well_pad_crosswalk, outfile) {
     dplyr::select(entity_id, gas) %>%
     dplyr::collect() %>%
     dplyr::filter(!is.na(gas)) %>%
-    # 1:1 join (U and V), no column conflicts (C), type of "by" must be the same
-    # (T)
-    safejoin::safe_inner_join(well_pad_mapping, by="entity_id", check="U V C T") %>%
+    # 1:1 join, no column conflicts, type of "by" must be the same
+    powerjoin::power_inner_join(well_pad_mapping, by="entity_id",
+      check=merge_specs(
+        unmatched_keys_left = "ignore",
+        unmatched_keys_right = "ignore",
+      )
+    ) %>%
     dplyr::group_by(well_pad_id) %>%
     dplyr::summarize(gas = sum(gas), .groups="drop") %>%
     dplyr::mutate(any_gas = gas >= 0.01)
@@ -238,6 +271,7 @@ count_gas_vs_nongas_wells <- function(prod_dir, well_pad_crosswalk, outfile) {
 
 calc_summaries_for_balance_tables <- function(df) {
   stopifnot(!is.null(df), nrow(df) > 10)
+  df %<>% convert_km_to_nearest_well_pad()
   pretty_vars <- get_pretty_varnames(names(df))
   summary_stats <- list(
     mean = function(x) signif(mean_(x), 3),
@@ -344,7 +378,9 @@ if (! exists("snakemake")) {
       #   "omara_2018" = "data/studies/omara_etal_2018/Omara_etal_SI_tables.csv",
       #   "duren_2019" = "data/studies/duren_etal_2019/Plume_list_20191031.csv"
       # ),
-      matched_leakage = "data/generated/methane_measures/matched_wells_all.rds"
+      matched_leakage = "data/generated/methane_measures/matched_wells_all.parquet",
+      ground_studies = "data/generated/methane_measures/ground_studies.parquet",
+      lyon_etal_2016 = "data/generated/methane_measures/lyon_etal_2016.parquet"
     ),
     output = list(
       # Order matters here (we'll index by position later)
@@ -373,7 +409,11 @@ prod_dir <- snakemake@input[["prod"]]
 
 if (!exists("df_list")) {
   # for debugging speed.
-  df_list <- prep_measurement_data(snakemake@input[["matched_leakage"]])
+  df_list <- prep_measurement_data_extra(
+    filename_aviris=snakemake@input[["matched_leakage"]],
+    filename_ground_studies=snakemake@input[["ground_studies"]]
+  )
+  df_list$lyon <- arrow::read_parquet(snakemake@input[["lyon_etal_2016"]])
   # Important note:
   # load_all_wells will load all wells *for the states that have been processed*
   # Currently we only process CO, NM, and CA, since those are the states we're
@@ -401,3 +441,4 @@ count_gas_vs_nongas_wells(prod_dir, snakemake@input$well_pad_crosswalk,
 )
 
 rm(snakemake) # easier debugging
+

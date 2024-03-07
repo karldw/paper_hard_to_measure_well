@@ -6,5 +6,8 @@ channels:
     - conda-forge
     - base
 dependencies:
-    - bioconda::snakemake-minimal=6.8.0
-    - singularity=3.7.1
+    # As of writing, last pre-version-8 snakemake release.
+    # version 8 would require some code edits.
+    - bioconda::snakemake-minimal=7.32.4
+    # python 3.12 causes (newer versions of) snakemake to insert erroneous spaces.
+    - python=3.10

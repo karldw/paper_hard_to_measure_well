@@ -1,8 +1,10 @@
-
+suppressMessages(
+  here::i_am("code/group_into_well_pads.R", uuid="d22f7910-5d5a-4280-ab7a-2685a1725e10")
+)
 source(here::here("code/shared_functions.r"))
 
-INPUT_CRS <- sf::st_crs(4326) # https://epsg.io/4326
-WORKING_CRS <- sf::st_crs(6350) # https://epsg.io/6350
+INPUT_CRS   <- sf::st_crs(CRS_LONGLAT_int) # https://epsg.io/4326
+WORKING_CRS <- sf::st_crs(CRS_PROJECT_int) # https://epsg.io/6350
 
 
 find_well_pads <- function(df, well_pad_number_start, verbose=FALSE) {
@@ -29,12 +31,10 @@ find_well_pads <- function(df, well_pad_number_start, verbose=FALSE) {
   )
   well_pad_info <- well_pad_geometry %>%
     sf::st_centroid() %>%
-    sf::st_transform(crs=INPUT_CRS) %>%
-    sf::st_coordinates() %>%
-    dplyr::as_tibble() %>%
+    geometry_to_lonlat() %>%
     dplyr::transmute(
-      well_pad_lon = .data$X,
-      well_pad_lat = .data$Y,
+      well_pad_lon = .data$longitude,
+      well_pad_lat = .data$latitude,
       well_pad_id  = new_well_pad_ids,
     )
   well_pad_df <- sf::st_sf(well_pad_info, geometry = well_pad_geometry)
@@ -71,7 +71,7 @@ assign_well_pads <- function(header_df, verbose=TRUE) {
   # "SWD", "UNIT", or "WELL"), don't do the geographic work, just label them
   # their own singleton well pad.
   singletons <- header_df %>%
-    dplyr::group_by(aapg_geologic_province, operator_company_name) %>%
+    dplyr::group_by(aapg_geologic_province) %>%
     dplyr::filter(dplyr::n() == 1 | entity_type == "LEASE") %>%
     dplyr::ungroup() %>%
     dplyr::select(entity_id, surface_longitude_wgs84, surface_latitude_wgs84) %>%
@@ -88,11 +88,7 @@ assign_well_pads <- function(header_df, verbose=TRUE) {
   # basin.)
   non_singleton <- header_df %>%
     dplyr::anti_join(singletons, by="entity_id") %>%
-    sf::st_as_sf(
-      crs=INPUT_CRS,
-      coords=c("surface_longitude_wgs84", "surface_latitude_wgs84")
-    ) %>%
-    sf::st_transform(crs=WORKING_CRS)
+    lonlat_to_projected(c("surface_longitude_wgs84", "surface_latitude_wgs84"))
 
   # well_pads is the geometry of the well pads (a POLYGON buffered around the
   # points of each group of wells)
@@ -100,7 +96,10 @@ assign_well_pads <- function(header_df, verbose=TRUE) {
     # Split by basin so we can run different regions in parallel
     # Well pads will not span different subgroups of the group_by, so be careful
     # before adding grouping variables.
-    dplyr::group_by(aapg_geologic_province, operator_company_name) %>%
+    # NB: we are *not* grouping by operator_company_name -- there are some wells
+    # that are reported at exactly the same location, but with different
+    # operators. We group these into a single well pad.
+    dplyr::group_by(aapg_geologic_province) %>%
     dplyr::group_split()
   # We then also need to make sure we're not assigning duplicate well_pad_id
   # values in the different parallel processes, so calculate disjoint sets of
@@ -180,8 +179,8 @@ create_well_pad_crosswalk <- function(header_dir, output_file, year_range) {
   stopifnot(dir.exists(header_dir), length(output_file) == 1)
   header_df <- arrow::open_dataset(header_dir) %>%
     dplyr::filter(
-      first_prod_year >= year_range[1],
-      first_prod_year <= year_range[2],
+      .data$first_prod_year >= year_range[1],
+      .data$first_prod_year <= year_range[2],
       !is.na(aapg_geologic_province),
       aapg_geologic_province != "(N/A)",
       !is.na(surface_latitude_wgs84),
@@ -196,8 +195,130 @@ create_well_pad_crosswalk <- function(header_dir, output_file, year_range) {
     dplyr::collect() %>%
     dplyr::distinct()  # distinct for multiple wells at the same entity and location
 
-  well_pad_crosswalk <- assign_well_pads(header_df, verbose=FALSE)
+  well_pad_crosswalk <- assign_well_pads(header_df, verbose=FALSE) %>%
+    add_distance_to_nearest_well_pad() %>%
+    add_count_wells_nearby()
   arrow::write_parquet(well_pad_crosswalk, output_file)
+}
+
+
+add_distance_to_nearest_well_pad <- function(well_df) {
+  df <- well_df %>%
+    dplyr::select(well_pad_id, well_pad_lon, well_pad_lat) %>%
+    dplyr::distinct() %>%
+    lonlat_to_projected(c("well_pad_lon", "well_pad_lat"))
+
+  stopifnot(
+    anyDuplicated(df$well_pad_id) == 0L,
+    nrow(df) > 0
+  )
+  if (nrow(df) == 1) {
+    dists <- NA_real_
+  } else {
+    suppressMessages(
+      neighbor_info <- nngeo::st_nn(df, df, k=2L, returnDist=TRUE, progress=FALSE)
+    )
+    # Since we're matching df with df, the nearest neighbor is always the same
+    # well pad, so we ask for two neighbors to get the next nearest well pad.
+    # Therefore, we take the max of these two distances (the distance to self is
+    # always zero)
+    dists <- purrr::map_dbl(neighbor_info$dist, max)
+    stopifnot(
+      all(purrr::map_dbl(neighbor_info$dist, min) == 0),
+      all(dists >= 10) # centroids should be s
+    )
+  }
+
+  df_dists <- df %>%
+    sf::st_drop_geometry() %>%
+    dplyr::select(well_pad_id) %>%
+    # More precisely, this is the distance in meters between one well pad
+    # centroid to the nearest well pad's centroid.
+    dplyr::mutate(distance_to_nearest_pad_m = !!dists)
+  out <- dplyr::inner_join(well_df, df_dists, by="well_pad_id")
+  out
+}
+
+
+add_count_wells_nearby <- function(well_df) {
+  # Work from most populous basin first, just so the parallel processing doesn't
+  # wait too long on single straglers.
+  basins <- well_df %>%
+    dplyr::count(aapg_geologic_province) %>%
+    dplyr::arrange(dplyr::desc(n)) %>%
+    purrr::chuck("aapg_geologic_province")
+
+  counts_df <- furrr::future_map_dfr(
+    basins, count_wells_nearby_one_basin,
+    well_df=well_df,
+    .options=furrr::furrr_options(seed=TRUE)
+  )
+  stopifnot(anyDuplicated(counts_df$well_pad_id) == 0)
+  out <- dplyr::inner_join(well_df, counts_df, by="well_pad_id")
+  out
+}
+
+
+count_wells_nearby_one_basin <- function(aapg_geologic_province, well_df) {
+  # Maybe useful for speed improvements:
+  # SAN JOAQUIN BASIN took 2.95 mins
+  # PERMIAN BASIN took 25.64 secs
+  # DENVER JULESBURG took 23.74 secs
+  # SAN JUAN took 8.05 secs
+  # PICEANCE took 2.56 secs
+  # LOS ANGELES BASIN took 2.31 secs
+  # RATON took 0.89 secs
+  # SACRAMENTO BASIN took 0.57 secs
+  # VENTURA BASIN took 0.43 secs
+  # SANTA MARIA BASIN took 0.69 secs
+  # SALINAS BASIN took 0.28 secs
+  # LAS ANIMAS ARCH took 0.21 secs
+  # GREEN RIVER took 0.17 secs
+  # ANADARKO BASIN took 0.16 secs
+  # PARADOX took 0.15 secs
+  # BRAVO DOME took 0.17 secs
+  # NORTH PARK took 0.14 secs
+  # EEL RIVER BASIN took 0.12 secs
+  # HALF MOON BASIN took 0.13 secs
+  # IMPERIAL VALLEY BASIN took 0.12 secs
+  # NORTHERN COAST PRVC took 0.12 secs
+  # SONOMA BASIN took 0.12 secs
+  # ESTANCIA BASIN took 0.12 secs
+  # TUCUMCARI BASIN took 0.12 secs
+
+  individual_well_geom <- well_df %>%
+    dplyr::filter(.data$aapg_geologic_province == !!aapg_geologic_province) %>%
+    dplyr::select(entity_id, surface_longitude_wgs84, surface_latitude_wgs84) %>%
+    lonlat_to_projected(c("surface_longitude_wgs84", "surface_latitude_wgs84"))
+
+  well_pad_df <- well_df %>%
+    dplyr::filter(.data$aapg_geologic_province == !!aapg_geologic_province) %>%
+    dplyr::select(well_pad_id, well_pad_lon, well_pad_lat) %>%
+    dplyr::distinct()
+
+  nearby_dist_km <- 10
+
+  stopifnot(
+    length(aapg_geologic_province) == 1L,
+    anyDuplicated(well_df[["entity_id"]]) == 0L,
+    anyDuplicated(well_df[["well_pad_id"]]) != 0L,
+    nrow(individual_well_geom) > 0,
+    nrow(well_pad_df) > 0,
+    nearby_dist_km > 0
+  )
+
+  well_pad_buffered <- well_pad_df %>%
+    lonlat_to_projected(c("well_pad_lon", "well_pad_lat")) %>%
+    sf::st_buffer(dist = nearby_dist_km * 1000) # default to 10km
+  intersect_count <- sf::st_intersects(well_pad_buffered, individual_well_geom) %>%
+    purrr::map_int(length)
+
+  # Note: this count includes wells in the well pad.
+  out <- well_pad_df %>%
+    dplyr::select(well_pad_id) %>%
+    dplyr::mutate(tot_count_wells_within_10km = !!intersect_count)
+
+  out
 }
 
 
@@ -230,7 +351,19 @@ test_well_pad_creation <- function() {
 
 
 if (!exists("snakemake")) {
-  stop("This script is meant to be run with snakemake.")
+  message("This script is meant to be run with snakemake. Using a placeholder.")
+  snakemake <- SnakemakePlaceholder(
+    input = list(
+      headers = "data/generated/production/well_headers",
+      script = "code/group_into_well_pads.R"
+    ),
+    output = list(
+      "data/generated/production/well_pad_crosswalk_1970-2018.parquet"
+    ),
+    wildcards = list(year_range = "1970-2018"),
+    threads = 4L,
+    resources = list(mem_mb = 10000L)
+  )
 }
 
 # Set up resources (mem limit doesn't work on MacOS)

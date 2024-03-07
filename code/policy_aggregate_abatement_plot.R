@@ -1,8 +1,32 @@
+suppressMessages(
+  here::i_am("code/policy_aggregate_abatement_plot.R", uuid="7d491c25-7a1e-433f-b850-f73660b5d341")
+)
 
 source(here::here("code/shared_functions.r"))
+
+
+if (!exists("snakemake")) {
+  snakemake <- SnakemakePlaceholder(
+    input = list(
+      outcome_summaries = fs::dir_ls(
+        here::here("data/generated/policy_outcomes/main_spec/08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours"),
+        regexp = "audit_outcome_summary_rule=remote_low_frac\\=0pct_tauT=[0-9]+\\.?[0-9]*.parquet$",
+      ),
+      r_lib = "scratch/snakemake_flags/setup_r_library",
+      script = "code/policy_aggregate_abatement_plot.R",
+      constants = "code/constants.json",
+      policy_output_helper_functions = "code/policy_output_helper_functions.r"
+    ),
+    output = list(
+      aggregate_abatement_plot = "graphics/aggregate_abatement_curve.pdf"
+    ),
+    threads = 1
+  )
+}
+
+
 source(snakemake@input[["policy_output_helper_functions"]])
 options(scipen = 99, mc.cores=snakemake@threads)
-memory_limit(snakemake@resources[["mem_mb"]])
 
 const <- read_constants()
 METHANE_GWP <- const$METHANE_GWP
@@ -51,8 +75,6 @@ plot_aggregate_abatement_curve <- function(results_df, plot_file) {
   save_plot(plt, plot_file, reproducible=TRUE)
 }
 
-all_res_no_dup <- read_policy_summaries(
-  snakemake@input[["outcome_summaries"]],
-  fill_redundant=FALSE
-)
+# Note: here we don't need the extra processing that happens in read_policy_summaries
+all_res_no_dup <- purrr::map_dfr(snakemake@input[["outcome_summaries"]], arrow::read_parquet)
 plot_aggregate_abatement_curve(all_res_no_dup, snakemake@output$aggregate_abatement_plot)

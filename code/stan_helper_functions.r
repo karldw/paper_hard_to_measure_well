@@ -1,35 +1,45 @@
+Sys.setenv(CMDSTANR_NO_VER_CHECK = "true")
 
 
-check_cmdstan <- function() {
-  cmdstan_path <- purrr::safely(cmdstanr::cmdstan_path)()
-  if (!is.null(cmdstan_path$error)) {
-    stop(
-      cmdstan_path$error, "\n",
-      "If you know cmdstan is installed, either set the CMDSTAN ",
-      "environment variable or run cmdstanr::set_cmdstan_path(...).\n",
-      "If cmdstan isn't installed, see\n",
-      "https://github.com/stan-dev/cmdstan/wiki/Getting-Started-with-CmdStan\n",
-      "You may also want to add compiler flags:\n",
-      "    CXXFLAGS+= -march=native -pipe -fpic -flto -pthread\n",
-      "    O_STANC=3\n",
-      "    STAN_THREADS=true\n",
-      "    STANCFLAGS+=--O\n"
-    )
-    # NOTE: the --O stanc flag caused compile-time errors in v2.23.0, but
-    # seems to have been fixed.
-  }
-  # version_info_cmdstan.txt defines a CMDSTAN_VERSION variable.
-  # It's in a separate file so I can have snakemake depend on it without having
-  # to re-run the stan fits every time I change this file.
+check_cmdstan_path <- function(verbose=TRUE) {
   source(here::here("code/version_info_cmdstan.txt"))
-  if (cmdstanr::cmdstan_version() != CMDSTAN_VERSION) {
-    stop("Expected cmdstan version ", CMDSTAN_VERSION, " but ",
-      cmdstanr::cmdstan_version(), " is installed.\n",
-      "Please either change the installed version (e.g. by changing your ",
-      "CMDSTAN environment variable) or change the expectation by editing ",
-      "code/version_info_cmdstan.txt.\n",
-      "(Versions below 2.24.1 are not recommended.)"
-    )
+
+  # cmdstan is provided in the r_scripts.yml, so this script only has to do a
+  # couple of checks and set some flags.
+
+  cmdstan_env <- Sys.getenv("CMDSTAN")
+  conda_prefix_env <- Sys.getenv("CONDA_PREFIX")
+  if (cmdstan_env == "") {
+    stop("CMDSTAN env variable should be set", call.=FALSE)
+  }
+  if (conda_prefix_env == "") {
+    stop("CONDA_PREFIX env variable should be set", call.=FALSE)
+  }
+  if (!startsWith(cmdstan_env, here::here())) {
+    stop(paste0(
+      "CMDSTAN env variable should be inside the project, but was not:\n",
+      "- CMDSTAN:  '", cmdstan_env, "'\n",
+      "- This dir: '", here::here(), "'"
+    ), call.=FALSE)
+  }
+  if (!startsWith(cmdstan_env, conda_prefix_env)) {
+    stop(paste0(
+      "CMDSTAN should be a subdirectory of CONDA_PREFIX\n",
+      "- CMDSTAN:      '", cmdstan_env, "'\n",
+      "- CONDA_PREFIX: '", conda_prefix_env, "'"
+    ), call.=FALSE)
+  }
+  installed_version <- cmdstanr::cmdstan_version()
+  if (installed_version != CMDSTAN_VERSION) {
+    stop(paste0(
+      "Installed version (", installed_version, ") ",
+      "does not match expected version (", CMDSTAN_VERSION, ")."
+    ), call.=FALSE)
+  }
+
+  if (verbose) {
+    message(cmdstanr::cmdstan_path())
+    cmdstanr::check_cmdstan_toolchain()
   }
   invisible(NULL)
 }
@@ -45,11 +55,16 @@ call_with_args <- function(fn, arg_list, verbose=FALSE) {
       message("Not using arguments: ", paste(ignored_arg_names, collapse=", "))
     }
   }
-  # Then call the function with those args (do_call is very similar to do.call)
-  brms::do_call(fn, args)
+  # Then call the function with those args
+  do.call(fn, args)
 }
 
 fit_stan_model <- function(model, sdata, args) {
+  # Avoid warnings created by the underlying cmdstanr code.
+  orig_warnPartialMatchArgs <- getOption("warnPartialMatchArgs")
+  options(warnPartialMatchArgs = FALSE)
+  on.exit(options(warnPartialMatchArgs = orig_warnPartialMatchArgs), add=TRUE)
+
   class(sdata) <- "list"
   args$data <- sdata
   args$output_dir <- here::here("scratch/stan_output")
@@ -92,7 +107,7 @@ fit_stan_model <- function(model, sdata, args) {
       args$iter_sampling <- args$warmup
       args$warmup <- NULL
     }
-    fit <- brms::do_call(model$sample, args)
+    fit <- do.call(model$sample, args)
   } else if (algorithm %in% c("fullrank", "meanfield")) {
     # vb does not support parallel execution
     fit <- call_with_args(model$variational, args)
@@ -115,6 +130,11 @@ fit_metadata <- function(fit) {
 #' Extract draws with tidyselect syntax
 #' For Stan arrays/vectors/matrices, all elements are selected.
 extract_draws <- function(fit, ...) {
+  # Avoid warnings created by the underlying posterior code.
+  orig_warnPartialMatchArgs <- getOption("warnPartialMatchArgs")
+  options(warnPartialMatchArgs = FALSE)
+  on.exit(options(warnPartialMatchArgs = orig_warnPartialMatchArgs), add=TRUE)
+
   # NOTE: this would be simpler with fit$draws(), but because different chains
   # might have different parameters, fit$draws() fails.
   # See https://github.com/stan-dev/cmdstanr/issues/280
@@ -152,6 +172,7 @@ extract_draws <- function(fit, ...) {
 }
 
 compare_models <- function(fit_list, criterion=c("loo", "waic", "kfold"), ...) {
+  stop("This function is no longer used. If re-enabling, add loo=2.4.1 and brms=2.15.0 to the list of dependencies.")
   criterion <- match.arg(criterion)
   # Minor workaround because brms::loo_compare doesn't accept a list of models
   criterion_fn <- getExportedValue("brms", criterion)
@@ -197,16 +218,25 @@ cmdstan_diagnose <- function(files, compare_chains=TRUE) {
   return(run_log)
 }
 
-check_cmdstan_diagnostics <- function(fit, quiet=FALSE, compare_chains=TRUE) {
+check_cmdstan_diagnostics <- function(fit, quiet=FALSE, compare_chains=TRUE, skip_checks=character(0)) {
   # Searching the output text seems terrible, it's otherwise a hassle to extract
   # all four diagnostics.
   # Sure would be nice if I didn't have to search output strings...
 
+  # Note on treedepth:
+  # Used to regex search for "Treedepth satisfactory for all transitions"
+  # However, some of the robustness specs have treedepth issues.
+  # E.g.
+  #   1 of 1000 (0.10%) transitions hit the maximum treedepth limit of 9, or 2^9 leapfrog steps.
+  #   Trajectories that are prematurely terminated due to this limit will result in slow exploration.
+  #   For optimal performance, increase this limit.
+  # And treedepth is an efficiency check, not a correctness check, so I'm no
+  # longer checking it.
   fit_method <- fit_metadata(fit) %>% purrr::chuck(1L, "method")
   if (fit_method == "sample") {
     regex_good_results <- c(
       divergence = "No divergent transitions found",
-      treedepth = "Treedepth satisfactory for all transitions",
+      # treedepth = "Treedepth satisfactory for all transitions",
       energy = "E-BFMI satisfactory",
       rhat = "R-hat values satisfactory all parameters"
     )
@@ -220,6 +250,7 @@ check_cmdstan_diagnostics <- function(fit, quiet=FALSE, compare_chains=TRUE) {
     warning("Note: don't know how to check results from method ", fit_method)
     return(TRUE)
   }
+  regex_good_results <- regex_good_results[setdiff(names(regex_good_results), skip_checks)]
   diagnose_res <- cmdstan_diagnose(
     fit$output_files(include_failed=FALSE),
     compare_chains = compare_chains
@@ -234,7 +265,7 @@ check_cmdstan_diagnostics <- function(fit, quiet=FALSE, compare_chains=TRUE) {
   res <- purrr::map_lgl(diagnose_res, check_once, regex_good_results)
   # Recall that if compare_chains == TRUE, length(res) == 1, but if we're
   # running a lot of short bootstrap chains, we need to accept some error.
-  good_enough <- mean(res) > 0.7
+  good_enough <- mean(res) > 0.75
   if (!quiet && !good_enough) {
     # cat() out the ones that had any errors:
     purrr::walk(diagnose_res[!res], cat)
@@ -297,7 +328,7 @@ save_stan_results <- function(fit, output_files, generate_row_count) {
       stopifnot(length(col_select) > 100)
 
       # Run this reading in parallel (this is the slow part of this function -
-      #about 1.9 seconds per file). furrr will use whatever the current
+      # about 1.9 seconds per file). furrr will use whatever the current
       # future::plan is. This is set in run_stan.R.
       # Also note that we could run in parallel at a higher level - over
       # output_files - but doing so would use more memory.
@@ -429,4 +460,36 @@ write_stan_json <- function (data, file, skip_conversion=charater(0)) {
     digits = NA,
     pretty = TRUE
   )
+}
+
+#' Set the adapt_delta Stan parameter based on the attempt count
+#'
+#' @param attempt_count The number of tries this rule has been tried
+#'   (starts from 1).
+#' @return A real scalar in interval (0, 1). See Stan docs for
+#'   `adapt_delta`. Value weakly increases with `attempt_count`.
+get_adapt_delta <- function(attempt_count) {
+  stopifnot(
+    rlang::is_scalar_integerish(attempt_count),
+    noNAs(attempt_count),
+    attempt_count >= 1
+  )
+  if (attempt_count <= 4) {
+    adapt_delta <- c(0.9, 0.95, 0.99, 0.995)[attempt_count]
+  } else {
+    adapt_delta <- 0.99
+  }
+  stopifnot(!anyNA(adapt_delta))
+  if (attempt_count > 1) {
+    glue_message("After past failures, using adapt_delta={adapt_delta} for attempt {attempt_count}")
+  }
+  adapt_delta
+}
+
+clean_stan_csvs <- function(model_fit, generate_fit) {
+  to_delete <- c(
+    model_fit$output_files(include_failed=TRUE),
+    generate_fit$output_files(include_failed=TRUE)
+  )
+  fs::file_delete(to_delete)
 }

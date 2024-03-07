@@ -1,9 +1,14 @@
-# Limit the number of threads OpenBLAS uses, since we're using tqdm to run in
-# parallel at a higher level. (Only affects OpenBLAS; must be run before
+# Limit the number of threads OpenBLAS uses, since we're using snakemake to run
+# in parallel at a higher level. (Only affects OpenBLAS; must be run before
 # we import numpy)
+# Also guard against MKL bugs, in case using MKL.
+# See https://www.alexpghayes.com/post/2022-10-18-intel-mkl-data-race/
 import os
 
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_THREADING_LAYER"] = "sequential"
+os.environ["MKL_NUM_THREADS"] = "1"
+
 
 # conda:
 import numpy as np
@@ -22,13 +27,12 @@ from collections import namedtuple
 from functools import partial
 import json
 import datetime
-import pickle
 import logging
 import re
 import warnings
 import contextlib
-import io
-import sys
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 # The math details (FOC etc) are in outcomes_analysis_derivative_functions.py
 # The logic of using those FOC are in this file.
@@ -43,6 +47,7 @@ from outcomes_analysis_helpers import (
     AuditInfo,
     DataParam,
     OutcomesOneDraw,
+    FEE_PERCENTILES_TO_REPORT,
 )
 
 const = read_constants()
@@ -142,9 +147,9 @@ def read_sdata(json_file):
     with open(json_file, "rt") as f:
         sdata = json.load(f)
     df = pd.DataFrame(sdata["X"], columns=sdata["X_varnames"])
-    # Note that "Y", "noise", "price" are not columns in X.
-    # See distribution_model_data_prep.R
-    for c in {"Y", "noise", "price"}:
+    # Note that "Y", "noise", "price", and "gas_avg_mcfd" are not columns in X.
+    # See model_data_prep.R
+    for c in {"Y", "noise", "price", "gas_avg_mcfd"}:
         df[c] = sdata[c]
     return df
 
@@ -296,7 +301,9 @@ def calc_outcomes_once(audit_info, data_param, r_guess=None):
     # Total expected emissions: e_i * (1 - q_i) * H
     # Expected fee per unit of emissions: tau * T * r_i / H
     expected_fee_per_kg = expected_fee_charged / data_param.time_H
-    fee_quantiles = np.quantile(expected_fee_per_kg, (0.5, 0.1, 0.9))
+    fee_quantiles = np.quantile(
+        expected_fee_per_kg, tuple(FEE_PERCENTILES_TO_REPORT.values())
+    )
     # Note that tot_cost_per_kg is the expected cost to the operator of having
     # one more kg emissions: the expected fee plus the commodity value lost.
     # It does *not* include other costs, like abatement or audits.
@@ -305,7 +312,7 @@ def calc_outcomes_once(audit_info, data_param, r_guess=None):
     tot_cost_per_kg = expected_fee_per_kg + gas_price_per_kg_ch4
 
     # Now, we also want to compare to the gas price, so convert back from kg CH4
-    # to mcf natural gas (see notes in distribution_model_data_prep.r and
+    # to mcf natural gas (see notes in model_data_prep.r and
     # match_jpl_measurements.R)
     methane_kg_per_mcf = 18.8916  # Note: this is for pure CH4, not nat gas
     approx_ch4_fraction = 0.95
@@ -342,9 +349,21 @@ def calc_outcomes_once(audit_info, data_param, r_guess=None):
         emis_tot=np.sum(emis),
         tot_cost_per_kg_mean=np.mean(tot_cost_per_kg),
         fee_per_kg_mean=np.mean(expected_fee_per_kg),
-        fee_per_kg_med=fee_quantiles[0],
-        fee_per_kg_p10=fee_quantiles[1],
-        fee_per_kg_p90=fee_quantiles[2],
+        fee_per_kg_p01=fee_quantiles[0],
+        fee_per_kg_p05=fee_quantiles[1],
+        fee_per_kg_p10=fee_quantiles[2],
+        fee_per_kg_p20=fee_quantiles[3],
+        fee_per_kg_p25=fee_quantiles[4],
+        fee_per_kg_p30=fee_quantiles[5],
+        fee_per_kg_p40=fee_quantiles[6],
+        fee_per_kg_med=fee_quantiles[7],
+        fee_per_kg_p60=fee_quantiles[8],
+        fee_per_kg_p70=fee_quantiles[9],
+        fee_per_kg_p75=fee_quantiles[9],
+        fee_per_kg_p80=fee_quantiles[11],
+        fee_per_kg_p90=fee_quantiles[12],
+        fee_per_kg_p95=fee_quantiles[13],
+        fee_per_kg_p99=fee_quantiles[14],
         net_private_cost_per_mcf_pct_price=net_private_cost_per_mcf_pct_price_weighted,
         shadow_price=λ,
         audit_rule=audit_info.audit_rule,
@@ -458,7 +477,7 @@ def calc_all_outcomes_all_draws(snakemake):
     input_files = get_input_files(snakemake)
     sdata = read_sdata(input_files["stan_data_json"])
     price = sdata["price"]  # gas_price_per_kg_ch4
-    gas_avg_mcfd = np.sinh(sdata["asinhgas_avg_mcfd"])
+    gas_avg_mcfd = sdata["gas_avg_mcfd"]
     time_H = parse_period_wildcard(snakemake.wildcards["time_period"])
     price_H_dollar_hr_per_kg = price * time_H
     audit_info = parse_audit_info(snakemake.wildcards)
@@ -472,16 +491,29 @@ def calc_all_outcomes_all_draws(snakemake):
     outcome_bau_list = []
     outcome_optimal_list = []
 
-    for i in range(num_draws):
-        outcomes_policy, outcome_bau, outcome_optimal = calc_all_outcomes_per_draw(
-            i,
-            input_files=input_files,
-            audit_info=audit_info,
-            price_H=price_H_dollar_hr_per_kg,
-            time_H=time_H,
-            gas_avg_mcfd=gas_avg_mcfd,
-            r_guess=None,
-        )
+    # Windows will throw an error if >61
+    # if snakemake.threads is 1, this will still launch a sub-process.
+    mp_threads = max(min(snakemake.threads - 1, 61), 1)
+    mp_context = multiprocessing.get_context(method="spawn")
+    mp_function = partial(
+        calc_all_outcomes_per_draw,
+        input_files=input_files,
+        audit_info=audit_info,
+        price_H=price_H_dollar_hr_per_kg,
+        time_H=time_H,
+        gas_avg_mcfd=gas_avg_mcfd,
+        r_guess=r_guess,
+    )
+    # For the slow ones, process in chunks. For the fast ones, just do it all in one.
+    if audit_info.audit_rule in {"target_e", "target_x"}:
+        mp_chunksize = 50
+    else:
+        mp_chunksize = num_draws
+    with ProcessPoolExecutor(max_workers=mp_threads, mp_context=mp_context) as executor:
+        parallel_results = executor.map(mp_function, range(num_draws), chunksize=mp_chunksize)
+
+    for res in parallel_results:
+        outcomes_policy, outcome_bau, outcome_optimal = res
         outcome_policy_list.append(outcomes_policy)
         outcome_bau_list.append(outcome_bau)
         outcome_optimal_list.append(outcome_optimal)
@@ -622,7 +654,7 @@ def set_memory_limit(mem_mb):
     """
     import resource
 
-    mem_bytes = mem_mb * 1024 ** 2
+    mem_bytes = mem_mb * 1024**2
     _, lim_hard = resource.getrlimit(resource.RLIMIT_AS)
     new_lim = (mem_bytes, lim_hard)
     resource.setrlimit(resource.RLIMIT_AS, new_lim)
@@ -704,7 +736,7 @@ def parse_audit_info(wildcards):
     elif wildcards["audit_amount"].startswith("optimal-"):
         audit_frac = 0.0
         audit_cost = float(
-            extract_regex_match(wildcards["audit_amount"], "^optimal-(\d+)usd$")
+            extract_regex_match(wildcards["audit_amount"], r"^optimal-(\d+)usd$")
         )
     else:
         raise ValueError(f"Failed to parse {wildcards['audit_amount']}")
@@ -776,9 +808,8 @@ class Timer(object):
         logging.info(f"Elapsed: {elapsed}")
 
 
-if not "snakemake" in globals():
+def make_placeholder_snakemake():
     logging.warn("Using placeholder snakemake")
-    data_generated = Path(pyprojroot.here("data/generated"))
     wildcards = {
         "model_name": "08_twopart_lognormal_heterog_alpha",
         # "model_name": "01_twopart_lognormal",
@@ -787,8 +818,12 @@ if not "snakemake" in globals():
         # "time_period": "",
         "prior_only": "",
     }
+    policy_outcomes = (
+        Path(pyprojroot.here("data/generated"))
+        / f"policy_outcomes/{wildcards['model_name']}{wildcards['prior_only']}{wildcards['bootstrap']}{wildcards['time_period']}"
+    )
     stan_fits = (
-        data_generated
+        Path(pyprojroot.here("scratch"))
         / f"stan_fits/{wildcards['model_name']}{wildcards['prior_only']}{wildcards['bootstrap']}{wildcards['time_period']}"
     )
     SnakemakePlaceholder = namedtuple(
@@ -800,23 +835,27 @@ if not "snakemake" in globals():
             "leak_size_expect": stan_fits / "leak_size_expect.parquet",
             "stan_data_json": stan_fits / "stan_data.json",
         },
-        output={"results_summary": stan_fits / "audit_outcome_summary.parquet"},
+        output={"results_summary": policy_outcomes / "audit_outcome_summary.parquet"},
         threads=4,
         resources={"mem_mb": 7000},
         wildcards=wildcards,
     )
+    return snakemake
 
 
 if __name__ == "__main__":
-
+    # Important: do not assume 'snakemake' will be available as a global.
+    # Instead, pass the snakemake object around between functions.
+    if not "snakemake" in globals():
+        snakemake = make_placeholder_snakemake()
     if snakemake.wildcards["model_name"] not in MODEL_NAMES["all"]:
         raise ValueError(f"Unknown model {snakemake.wildcards['model_name']}")
+    logging.basicConfig(filename=snakemake.log[0], level=logging.INFO, encoding="utf-8")
     try:
         set_memory_limit(snakemake.resources["mem_mb"])
     except:
         logging.warning("Note: failed to set memory limit.")
 
-    logging.basicConfig(filename=snakemake.log[0], level=logging.INFO, encoding="utf-8")
     with Timer(snakemake.output["results_summary"]):
         results = calc_all_outcomes_all_draws(snakemake).pipe(summarize_outcomes)
         results.to_parquet(snakemake.output["results_summary"])

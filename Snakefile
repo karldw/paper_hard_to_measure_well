@@ -1,14 +1,21 @@
 import os
 from pathlib import Path
-# Can set these in code rather than the command line:
-workflow.use_conda = True
-workflow.use_singularity = True
+
+# Set some variables that define workflow execution in code rather than the
+# command line: (note that the syntax has changed over time - need a leading
+# underscore now; see https://github.com/snakemake/snakemake/issues/2434)
+workflow._use_conda = True
+workflow._conda_frontend = "mamba"
+# Note: use_singularity = False is the default, but making that explicit here
+# because using Singularity leads to weird segfaults with CmdStan, depending on
+# the compliation details.
+workflow._use_singularity = False
 # --cleanenv because singularity passes existing environment variables through
 # to the container. That's a problem for some path variables and some build args
-workflow.singularity_args = "--cleanenv"
-# Retry failed jobs once. This can avoid erroring out for transient problems,
-# at the cost of trying things twice if there's a genuine issue.
-workflow.restart_times = 1
+# workflow.singularity_args = "--cleanenv"
+
+# The snakemake rules below already include the code as input
+workflow._rerun_triggers = frozenset({"mtime", "input", "param"})
 
 # Note on threads:
 # The number listed is the max snakemake will schedule. Snakemake will scale
@@ -21,7 +28,19 @@ TEX_FRAGMENTS = Path("output/tex_fragments")
 INDIVIDUAL_FIGS = Path("output/individual_figures")
 SNAKEMAKE_FLAGS = Path("scratch/snakemake_flags")
 SNAKEMAKE_FLAGS.mkdir(parents=True, exist_ok=True)
-STAN_FITS = Path("data/generated/stan_fits/")
+# Stan fits are things like saved coefficients and big parquet files of MCMC draws
+# (this is different than the raw CSVs Stan writes to scratch/stan_output)
+STAN_FITS = Path("scratch/stan_fits/")
+STAN_FITS.mkdir(parents=True, exist_ok=True)
+POLICY_OUTCOMES = Path("data/generated/policy_outcomes/")
+POLICY_OUTCOMES.mkdir(parents=True, exist_ok=True)
+
+
+# Retry failed Stan jobs up to twice with higher adapt_delta. This is slower,
+# but avoids transient and/or some fit errors, at the cost of trying things twice if there's an irresolvable issue.
+# This is like snakemake's --retries, but is only applied to the Stan rules,
+# since errors in other code won't be fixed by retrying.
+STAN_RETRY_ATTEMPTS = 3
 
 if not Path("data/drillinginfo").is_dir():
     raise FileNotFoundError("Missing contents in data/")
@@ -30,45 +49,44 @@ if not Path("data/drillinginfo").is_dir():
 number_regex = r"\d+\.?\d*"
 RE_AUDIT_tauT = f'({"|".join([tau + "-" + T for tau in ("low", "med", "high") for T in ("1week", "3month")])}|{number_regex})'
 
-# Use this container image for all computations -- even on other operating
-# systems, computations will run in a linux virtual machine.
-container: "docker://continuumio/miniconda3:4.10.3"
-# https://snakemake.readthedocs.io/en/stable/snakefiles/deployment.html#ad-hoc-combination-of-conda-package-management-with-containers
-# Everything except latex and placeholder (`touch`) rules get run in the container.
+# If using a container, a reasonable one might be:
+# container: "docker://condaforge/mambaforge:22.9.0-3"
+
+# Suggestion for running (though for some reason, with script this doesn't always use the conda environments? YMMV)
+# script --quiet --return --log-out "run_$(date --iso-8601).log" --append --command "ionice -c3 nice -n19 snakemake --cores 8"
+# less --RAW-CONTROL-CHARS --chop-long-lines "$(ls -1 --sort=time *.log | head --lines 1)"
+
+# Remove R paths that would interfere.
+import os
+import shutil
+os.environ.pop("RENV_PATHS_ROOT", None)
+os.environ.pop("R_LIBS", None)
+os.environ.pop("R_LIBS_USER", None)
+os.environ.pop("R_LIBS_SITE", None)
+
+def toolbox_available_but_unused():
+    """Check if we're in a setup where the computer is set up to use toolbox,
+    but we're not using it.
+    https://github.com/containers/toolbox
+    There are other containers that this doesn't test for, but this was the test
+    that was relevant during development.
+    """
+    which_toolbox = shutil.which("toolbox")
+    try:
+        toolbox_path = os.environ["TOOLBOX_PATH"]
+    except KeyError:
+        toolbox_path = ""
+    res = which_toolbox is not None and toolbox_path == ""
+    return res
+
+if toolbox_available_but_unused():
+    raise OSError("\nDid you forget to run Snakemake inside toolbox?\n")
 
 
 rule all:
     input:
         "output/paper.pdf",
         # "output/all_figures.pdf",
-
-
-rule all_models:
-    input:
-        # Force all currently working models:
-        STAN_FITS / "01_twopart_lognormal/model_fit.rds",
-        STAN_FITS / "01_twopart_lognormal-bootstrap/model_fit.rds",
-        STAN_FITS / "02_twopart_lognormal_alpha/model_fit.rds",
-        STAN_FITS / "02_twopart_lognormal_alpha-bootstrap/model_fit.rds",
-        STAN_FITS / "03_twopart_lognormal_meas_err/model_fit.rds",
-        STAN_FITS / "03_twopart_lognormal_meas_err-bootstrap/model_fit.rds",
-        STAN_FITS / "04_twopart_lognormal_meas_err_alpha/model_fit.rds",
-        STAN_FITS / "05_twopart_normal_qr/model_fit.rds",
-        STAN_FITS / "07_twopart_normal_qr_meas_err/model_fit.rds",
-        # STAN_FITS / "06_twopart_normal_qr_alpha_model.rds",  100% max treedepth
-        STAN_FITS / "08_twopart_lognormal_heterog_alpha/model_fit.rds",
-
-        # And their generated quantities:
-        STAN_FITS / "01_twopart_lognormal/leak_size_draw.parquet",
-        STAN_FITS / "01_twopart_lognormal-bootstrap/leak_size_draw.parquet",
-        STAN_FITS / "02_twopart_lognormal_alpha/leak_size_draw.parquet",
-        STAN_FITS / "02_twopart_lognormal_alpha-bootstrap/leak_size_draw.parquet",
-        STAN_FITS / "03_twopart_lognormal_meas_err/leak_size_draw.parquet",
-        # STAN_FITS / "03_twopart_lognormal_meas_err-bootstrap/leak_size_draw.parquet",  # Failing
-        STAN_FITS / "04_twopart_lognormal_meas_err_alpha_generate/leak_size_draw.parquet",
-        # STAN_FITS / "04_twopart_lognormal_meas_err_alpha_generate-bootstrap/leak_size_draw.parquet", # Failing
-        STAN_FITS / "08_twopart_lognormal_heterog_alpha/leak_size_draw.parquet",
-        STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap/leak_size_draw.parquet",
 
 
 rule generate_di_parquet_files:
@@ -91,7 +109,7 @@ rule generate_di_parquet_files:
         "code/convert_well_info_to_parquet.py"
 
 
-rule well_pad_mapping:
+rule group_into_well_pads:
     # The years used are parsed from the output filename. Different years in
     # year_range will result in different well pad definitions.
     input:
@@ -111,7 +129,7 @@ rule well_pad_mapping:
 rule match_jpl_measurements:
     input:
         # NOTE: you can use different well pad defs by changing the years here.
-        # See the well_pad_mapping rule.
+        # See the group_into_well_pads rule.
         well_pad_crosswalk = "data/generated/production/well_pad_crosswalk_1970-2018.parquet",
         prod = rules.generate_di_parquet_files.output.monthly,
         headers = rules.generate_di_parquet_files.output.headers,
@@ -131,8 +149,9 @@ rule match_jpl_measurements:
     output:
         # plot_obs_count_jpl = "graphics/observation_count_jpl_flights.pdf",
         # plot_jpl_flights_qq = "graphics/jpl_flights_qq_plot.pdf",
-        # lyon_etal_2016 = "data/generated/methane_measures/lyon_etal_2016.parquet",
-        cleaned_matched_obs = "data/generated/methane_measures/matched_wells_all.rds",
+        lyon_etal_2016 = "data/generated/methane_measures/lyon_etal_2016.parquet",
+        ground_studies = "data/generated/methane_measures/ground_studies.parquet",
+        cleaned_matched_obs = "data/generated/methane_measures/matched_wells_all.parquet",
         aviris_match_fraction_dropped = TEX_FRAGMENTS / "aviris_match_fraction_dropped.tex",
     threads: 1
     resources:
@@ -142,14 +161,36 @@ rule match_jpl_measurements:
         "code/match_jpl_measurements.R"
 
 
+rule group_into_dbscan_clusters:
+    """
+    Assign cluster IDs using dbscan. This is only used for robustness, so do it
+    outside the main path of match_jpl_measurements
+    """
+    input:
+        cleaned_matched_obs = "data/generated/methane_measures/matched_wells_all.parquet",
+        script = "code/group_into_dbscan_clusters.py",
+    output:
+        matched_wells_with_dbscan = "data/generated/methane_measures/matched_wells_with_dbscan.parquet",
+        map_dbscan_clusters = "graphics/map_dbscan_clusters.png",
+    threads: 1
+    conda: "code/envs/py_scripts.yml"
+    script:
+        "code/group_into_dbscan_clusters.py"
+
+
 rule plot_leak_distributions:
     input:
-        cleaned_matched_obs = "data/generated/methane_measures/matched_wells_all.rds",
+        cleaned_matched_obs = "data/generated/methane_measures/matched_wells_all.parquet",
+        ground_studies = "data/generated/methane_measures/ground_studies.parquet",
+        lyon_etal_2016 = "data/generated/methane_measures/lyon_etal_2016.parquet",
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/plot_leak_distributions.R",
     output:
         "graphics/leak_comparison_sizes.pdf",
         "graphics/leak_comparison_sizes_remote_only.pdf",
+        "graphics/leak_comparison_sizes_extra_titles.pdf",
+        "graphics/leak_comparison_fraction_with_detections.pdf",
+        "graphics/leak_comparison_fraction_with_detections_remote_only.pdf",
     threads: 1
     resources:
         mem_mb = 7000 # 7 GB
@@ -164,7 +205,6 @@ rule convert_inkscape:
     output:
         pdf = "graphics/drawing_{draw_name}.pdf",
         pdf_tex = "graphics/drawing_{draw_name}.pdf_tex"
-    container: None
     shell:
         # TODO: these inkscape options are deprecated. Fix.
         "inkscape {input} --export-filename={output.pdf} --export-latex --without-gui --export-dpi=300 --export-area-drawing --export-pdf-version='1.5' --export-background-opacity=0.0"
@@ -202,8 +242,10 @@ rule summary_stats_tables:
         headers = rules.generate_di_parquet_files.output.headers,
         prod = rules.generate_di_parquet_files.output.monthly,
         well_pad_crosswalk = "data/generated/production/well_pad_crosswalk_1970-2018.parquet",
-        matched_leakage = "data/generated/methane_measures/matched_wells_all.rds",
-        data_prep_script = "code/distribution_model_data_prep.r",
+        matched_leakage = "data/generated/methane_measures/matched_wells_all.parquet",
+        ground_studies = "data/generated/methane_measures/ground_studies.parquet",
+        lyon_etal_2016 = "data/generated/methane_measures/lyon_etal_2016.parquet",
+        data_prep_script = "code/model_data_prep.r",
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/summary_stats.R",
     output:
@@ -231,8 +273,8 @@ rule summary_stats_tables:
 
 
 rule setup_r_library:
+    # Read description in setup_r_library.R
     input:
-        "renv.lock",
         "code/envs/r_scripts.yml",
         "code/setup_r_library.R",
     output:
@@ -244,44 +286,88 @@ rule setup_r_library:
         "code/setup_r_library.R"
 
 
+rule setup_cmdstan:
+    input:
+        "code/version_info_cmdstan.txt",
+        "code/setup_cmdstan.R",
+        SNAKEMAKE_FLAGS / "setup_r_library",
+    output:
+        touch(SNAKEMAKE_FLAGS / "setup_cmdstan"),
+    conda: "code/envs/r_scripts.yml"
+    threads: 4
+    script:
+        "code/setup_cmdstan.R"
+
+
 rule compile_stan:
     input:
-        stan_file = "code/stan_models/{filename}.stan",
+        stan_file = "code/stan_models/{model_name}_{model_or_generate}.stan",
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
+        cmdstan = SNAKEMAKE_FLAGS / "setup_cmdstan",
+        script = "code/compile_stan.R",
     output:
         # this would be {filename}.exe on windows
-        "code/stan_models/{filename}"
+        "code/stan_models/{model_name}_{model_or_generate}"
     conda: "code/envs/r_scripts.yml"
     resources:
-        mem_mb = 2000
+        mem_mb = 4000
+    wildcard_constraints:
+        model_or_generate = "(model|generate)"
     threads: 1
     script:
         "code/compile_stan.R"
 
 
+rule compile_models:
+    input:
+        expand(
+            "code/stan_models/{model_name}_{model_or_generate}",
+            model_name = [
+                "08_twopart_lognormal_heterog_alpha",
+                "09_twopart_lognormal_heterog_alpha",
+            ],
+            model_or_generate = ["model", "generate"],
+        )
+
+
+def stan_max_threads(wildcards):
+    """How many threads can stan possibly use?"""
+    if wildcards.bootstrap == "-bootstrap":
+        threads = 100
+    else:
+        threads = 4
+    return threads
+
+
 rule stan_fit_model:
     input:
-        measurements = "data/generated/methane_measures/matched_wells_all.rds",
+        measurements = "data/generated/methane_measures/matched_wells_with_dbscan.parquet",
         stan_file = "code/stan_models/{model_name}_model.stan",
-        data_prep_script = "code/distribution_model_data_prep.r",
-        stan_version = "code/version_info_cmdstan.txt",
+        data_prep_script = "code/model_data_prep.r",
         compiled =  "code/stan_models/{model_name}_model",
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
+        cmdstan = SNAKEMAKE_FLAGS / "setup_cmdstan",
     output:
         # Note: the run_stan.R code pulls this file by *index*
-        STAN_FITS / "{model_name}{prior_only}{bootstrap}{time_period}/model_fit.rds",
+        STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/model_fit.rds",
     # Note: in non-bootstrap stan, we'll only use 4 threads (not doing within-chain threading)
     # As always, snakemake will scale this down if fewer cores are available.
-    threads: 100
+    threads: stan_max_threads
     wildcard_constraints:
-        # This is a little messy, but here we say anything other than a "-" is
-        # part of the model name, which prevents the model_name regex from being
-        # greedy and taking over the "-prior" text.
+        # robustness_spec is either "main_spec/" or something like "robustness1/"
+        robustness_spec = r"(main_spec|robustness[0-9]+)/",
+        # This is a little messy, but here we say anything other than a "-",
+        # "/" or "." is part of the model name, which prevents the model_name
+        # regex from being greedy and taking over the "-prior" text.
         # To add other param, just put them after the prior,
-        model_name = r"[^\-]+",
+        model_name = r"[^\-/\.]+",
         prior_only = "(-prior)?", # only accept "-prior" or ""
         bootstrap = "(-bootstrap)?",
         time_period = r"(-period_\d+_hours)?",
+    retries: STAN_RETRY_ATTEMPTS
+    resources:
+        attempt_count = lambda wildcards, attempt: attempt
+    log: "scratch/logs/cmdstan/stan_fit_model_{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}.log",
     conda: "code/envs/r_scripts.yml"
     script:
         "code/run_stan.R"
@@ -289,31 +375,34 @@ rule stan_fit_model:
 
 rule stan_generate:
     input:
-        measurements = "data/generated/methane_measures/matched_wells_all.rds",
+        measurements = "data/generated/methane_measures/matched_wells_with_dbscan.parquet",
         stan_file = "code/stan_models/{model_name}_generate.stan",
-        data_prep_script = "code/distribution_model_data_prep.r",
-        stan_version = "code/version_info_cmdstan.txt",
-        existing_fit = STAN_FITS / "{model_name}{prior_only}{bootstrap}{time_period}/model_fit.rds",
+        data_prep_script = "code/model_data_prep.r",
+        existing_fit = STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/model_fit.rds",
         compiled = "code/stan_models/{model_name}_generate",
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
+        cmdstan = SNAKEMAKE_FLAGS / "setup_cmdstan",
     output:
         # Note: The code will use these names (except stan_data_json) to look
         # for variables in the stan output. Therefore, all must be named.
         # The cost_coef models will additionally write cost_param_alpha.parquet
         # and cost_param_A.parquet (special cases in run_stan.R)
-        leak_size_draw   = STAN_FITS / "{model_name}{prior_only}{bootstrap}{time_period}/leak_size_draw.parquet",
-        leak_size_expect = STAN_FITS / "{model_name}{prior_only}{bootstrap}{time_period}/leak_size_expect.parquet",
-        prob_leak        = STAN_FITS / "{model_name}{prior_only}{bootstrap}{time_period}/prob_leak.parquet",
-        stan_data_json   = STAN_FITS / "{model_name}{prior_only}{bootstrap}{time_period}/stan_data.json",
-        prob_size_above_threshold = STAN_FITS / "{model_name}{prior_only}{bootstrap}{time_period}/prob_size_above_threshold.parquet",
-    threads: 100
+        leak_size_draw   = STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/leak_size_draw.parquet",
+        leak_size_expect = STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/leak_size_expect.parquet",
+        prob_leak        = STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/prob_leak.parquet",
+        stan_data_json   = STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/stan_data.json",
+        prob_size_above_threshold = STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/prob_size_above_threshold.parquet",
+    threads: stan_max_threads
     wildcard_constraints:
-        # Match a string of at least one character, matching any character except
-        # "-"
-        model_name = r"[^\-]+",
+        robustness_spec = r"(main_spec|robustness[0-9]+)/",
+        # Match a string of at least one character, matching any characters except
+        # "-", "/", and "."
+        model_name = r"[^\-/\.]+",
         prior_only = "(-prior)?", # only accept "-prior" or ""
         bootstrap = "(-bootstrap)?",
         time_period = r"(-period_\d+_hours)?",
+    retries: STAN_RETRY_ATTEMPTS
+    log: "scratch/logs/cmdstan/stan_generate_{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}.log",
     conda: "code/envs/r_scripts.yml"
     script:
         "code/run_stan.R"
@@ -333,22 +422,6 @@ rule plot_epa_emissions:
         "code/plot_epa_emissions.R"
 
 
-# rule render_dot:
-#     """Use graphviz's `dot` command to render a file
-#     Depends on having `dot` on the PATH. Works for any file type dot supports,
-#     including pdf, png, and svg.
-#     """
-#     input:
-#         "graphics/{basename}.dot"
-#     output:
-#         "graphics/{basename}.{ext}"
-#     wildcard_constraints:
-#         ext = "(pdf|svg|svgz|png|ps)"
-#     container: None
-#     shell:
-#         "dot {input} -T {wildcards.ext} -o {output}"
-
-
 rule tex_to_docx:
     input:
         tex = "output/{filename}.tex",
@@ -357,6 +430,17 @@ rule tex_to_docx:
         "output/{filename}.docx"
     shell:
         "pandoc {input.tex} -o {output}"
+
+
+rule pdf_to_grayscale:
+    input:
+        pdf = "{filename}.pdf",
+    output:
+        "{filename}_grayscale.pdf",
+    shell:
+        """
+        gs -o "{filename}_grayscale.pdf -sDEVICE=pdfwrite -sColorConversionStrategy=Gray -dProcessColorModel=/DeviceGray -dCompatibilityLevel=1.4 -dNOPAUSE -dBATCH {filename}"
+        """
 
 
 def outcomes_analysis_inputs(wildcards):
@@ -378,6 +462,7 @@ def outcomes_analysis_inputs(wildcards):
         "04_twopart_lognormal_meas_err_alpha",
         "06_twopart_normal_qr_alpha",
         "08_twopart_lognormal_heterog_alpha",
+        "09_twopart_lognormal_heterog_alpha",
     }
     all_models = {
         "01_twopart_lognormal",
@@ -387,7 +472,7 @@ def outcomes_analysis_inputs(wildcards):
         "05_twopart_normal_qr",
         "06_twopart_normal_qr_alpha",
         "07_twopart_normal_qr_meas_err",
-        "08_twopart_lognormal_heterog_alpha",
+        "09_twopart_lognormal_heterog_alpha",
     }
     model_name = wildcards.model_name
     if model_name not in all_models:
@@ -397,7 +482,7 @@ def outcomes_analysis_inputs(wildcards):
         time_period = wildcards.time_period
     else:
         time_period = ""
-    fit_dir = STAN_FITS / f"{model_name}{wildcards.prior_only}{wildcards.bootstrap}{time_period}"
+    fit_dir = STAN_FITS / f"{wildcards.robustness_spec}{model_name}{wildcards.prior_only}{wildcards.bootstrap}{time_period}"
 
     input_files = {
         "leak_size_draw":   fit_dir / "leak_size_draw.parquet",
@@ -414,14 +499,24 @@ def outcomes_analysis_inputs(wildcards):
     return input_files
 
 
+def outcomes_analysis_max_threads(wildcards):
+    """How many threads can outcomes_analysis.py reasonably use?"""
+    if wildcards.audit_rule in {"target_x", "target_e_low", "target_e_high"}:
+        threads = 20
+    else:
+        threads = 2
+    return threads
+
+
 rule outcomes_analysis:
     # See comments in outcomes_analysis_inputs
     input: unpack(outcomes_analysis_inputs)
     output:
-        results_summary = STAN_FITS /
-            "{model_name}{prior_only}{bootstrap}{time_period}" /
+        results_summary = POLICY_OUTCOMES /
+            "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}" /
             "audit_outcome_summary_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.parquet",
     wildcard_constraints:
+        robustness_spec = r"(main_spec|robustness[0-9]+)/",
         model_name = r"[^\-/\.]+",
         bootstrap = "(-bootstrap)?",
         prior_only = "(-prior)?", # only accept "-prior" or ""
@@ -432,49 +527,94 @@ rule outcomes_analysis:
         audit_amount="(0pct|1pct|10pct|optimal-100usd|optimal-600usd)",
         # For audit_tauT, accept anything like "low-1week", "med-3month", or "3.2"
         audit_tauT=RE_AUDIT_tauT
-    threads: 1
+    threads: outcomes_analysis_max_threads
     resources:
+        # note: this memory number is a rough guess, and not enforced in each thread.
+        # (each thread takes something like 100 MB)
         mem_mb = 3000 # 3 GB
     conda: "code/envs/py_scripts.yml"
-    log: "scratch/logs/outcomes_analysis/{model_name}{prior_only}{bootstrap}{time_period}_audit_outcome_summary_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.log",
+    log: "scratch/logs/outcomes_analysis/{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}_audit_outcome_summary_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.log",
     script:
         "code/outcomes_analysis.py"
 
-## Begin a bunch of functions that take output from outcomes_analysis and make outputs
+## Begin a bunch of rules that take output from outcomes_analysis and make outputs
 
-rule policy_shadow_price_plot:
+# rule policy_shadow_price_plot:
+#     input:
+#         outcome_summaries = expand(
+#             POLICY_OUTCOMES / "main_spec" /
+#             "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours" /
+#             "audit_outcome_summary_rule={audit_rule}_frac={audit_amount}_tauT=med-3month.parquet",
+#             audit_rule=["uniform", "target_x", "target_e_high"],
+#             audit_amount=["1pct", "10pct"],
+#         ),
+#         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
+#         script = "code/policy_shadow_price_plot.R",
+#         constants = "code/constants.json",
+#         policy_output_helper_functions = "code/policy_output_helper_functions.r",
+#     output:
+#         shadow_price_plot = "graphics/audit_shadow_price_plot.pdf",
+#     threads: 1
+#     resources:
+#         mem_mb = 4000,
+#     conda: "code/envs/r_scripts.yml"
+#     script:
+#         "code/policy_shadow_price_plot.R"
+
+
+rule policy_robustness_plots:
     input:
+        # Note: hard-coding the 1-59 range (59 = 2 ^ num_robustness_vars - 2 - num_robustness_vars + 3
+        # where we're omitting specs that are equal to the main spec, or have
+        # less than 2 rhs variables, and adding 3 non-combinatorial specs.
+        # (and remember range() doesn't include the right endpoint)
+        # not using bootstrap version
         outcome_summaries = expand(
-            STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours" /
-            "audit_outcome_summary_rule={audit_rule}_frac={audit_amount}_tauT=med-3month.parquet",
-            audit_rule=["uniform", "target_x", "target_e_high"],
-            audit_amount=["1pct", "10pct"],
-        ),
+            POLICY_OUTCOMES / "robustness{idx}" /
+            "09_twopart_lognormal_heterog_alpha-period_8760_hours" /
+            "audit_outcome_summary_rule={{audit_rule}}_frac={{audit_amount}}_tauT={{audit_tauT}}.parquet",
+            idx = range(1, 60)
+        ) + [
+            POLICY_OUTCOMES / "main_spec" /
+            "09_twopart_lognormal_heterog_alpha-period_8760_hours" /
+            "audit_outcome_summary_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.parquet",
+        ],
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
-        script = "code/policy_shadow_price_plot.R",
-        constants = "code/constants.json",
+        script = "code/policy_robustness_plots.R",
+        # constants = "code/constants.json",
         policy_output_helper_functions = "code/policy_output_helper_functions.r",
+        robustness_spec_script = "code/model_data_prep_robustness.r",
     output:
-        shadow_price_plot = "graphics/audit_shadow_price_plot.pdf",
+        plot_file_dwl = "graphics/robustness_audit_result_dwl_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.pdf",
+        plot_file_emiss = "graphics/robustness_audit_result_emission_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.pdf",
     threads: 1
     resources:
-        mem_mb = 2000,
+        mem_mb = 4000,
+    wildcard_constraints:
+        audit_rule = "(none|uniform|remote_low|remote_high|target_x|target_e_low|target_e_high)",
+        audit_amount = "(0pct|1pct|10pct|optimal-100usd|optimal-600usd)",
+        audit_tauT = RE_AUDIT_tauT,
     conda: "code/envs/r_scripts.yml"
     script:
-        "code/policy_shadow_price_plot.R"
+        "code/policy_robustness_plots.R"
 
 
-def linspace(start, stop, num=50):
-    # np.linspace without numpy (assuming endpoint=True)
-    return [start + x * (stop - start) / (num - 1) for x in range(num)]
+def linspace_int(start, stop, num=50):
+    # np.linspace and np.round without numpy (assuming endpoint=True)
+    # Rounding the results because the numbers get stored as filenames, and
+    # it's messy to have filenames like
+    # audit_outcome_summary_rule=remote_low_frac=0pct_tauT=24687.272727272728.parquet"
+    return [round(start + x * (stop - start) / (num - 1)) for x in range(num)]
+
 
 rule policy_aggregate_abatement_plot:
     input:
         outcome_summaries = expand(
-            STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours" /
+            POLICY_OUTCOMES / "main_spec" /
+            "09_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours" /
             "audit_outcome_summary_rule=remote_low_frac=0pct_tauT={audit_tauT}.parquet",
             # Here we're using SOCIAL_COST_METHANE_PER_KG=2 and time_H=8760
-            audit_tauT = linspace(start=0, stop=2 * 8760 * 1.5, num=100)
+            audit_tauT = linspace_int(start=0, stop=2 * 8760 * 1.5, num=100)
         ),
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/policy_aggregate_abatement_plot.R",
@@ -483,11 +623,10 @@ rule policy_aggregate_abatement_plot:
     output:
         aggregate_abatement_plot = "graphics/aggregate_abatement_curve.pdf",
     threads: 1
-    resources:
-        mem_mb = 2000,
     conda: "code/envs/r_scripts.yml"
     script:
         "code/policy_aggregate_abatement_plot.R"
+
 
 def policy_tables_generator_inputs(wildcards):
     """Figure out what input files we need for the tables
@@ -513,13 +652,13 @@ def policy_tables_generator_inputs(wildcards):
 
     # Which policies go into the table?
     # This isn't set in stone; could add or remove if you want.
-    if wildcards.table_type == "expected_fee":
-        audit_policies = ["uniform", "target_x", "target_e_low", "target_e_high"]
+    if wildcards.outcome_type == "expected_fee":
+        audit_policies = ["uniform", "target_x", "target_e_low", "target_e_high", "remote_low", "remote_high"]
 
-    elif wildcards.table_type in ("outcome_dwl", "outcome_emis"):
+    elif wildcards.outcome_type in ("outcome_dwl_emis"):
         audit_policies = ["uniform", "target_x", "target_e_low", "target_e_high", "remote_low", "remote_high"]
     else:
-        raise ValueError("Unknown table_type: ", wildcards.table_type)
+        raise ValueError("Unknown outcome_type: ", wildcards.outcome_type)
 
     if wildcards.audit_tau == "all-":
         tau_list = ["low-", "med-", "high-"]
@@ -527,7 +666,6 @@ def policy_tables_generator_inputs(wildcards):
         # Here audit_tau includes the trailing "-"
         assert wildcards.audit_tau.endswith("-")
         tau_list = [wildcards.audit_tau]
-
     input_file_part = []
     for pol in audit_policies:
         if pol in ["none", "remote_low", "remote_high"]:
@@ -536,14 +674,19 @@ def policy_tables_generator_inputs(wildcards):
             amt = wildcards.audit_amount
         for tau in tau_list:
             tauT = f"{tau}{wildcards.audit_T}"
-            input_file_part.append(
-                f"audit_outcome_summary_rule={pol}_frac={amt}_tauT={tauT}.parquet"
-            )
-    model_dir = STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours"
+            input_filename = f"audit_outcome_summary_rule={pol}_frac={amt}_tauT={tauT}.parquet"
+            # Avoid bug that was happening with f-strings adding spaces (this
+            # was solved by running Snakemake with Python 3.11 instead of 3.12,
+            # but unclear why.)
+            assert " " not in input_filename
+            input_file_part.append(input_filename)
+
+    model_dir = POLICY_OUTCOMES / "main_spec" / "09_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours"
     input_files = {
         "outcome_summaries": [model_dir / f for f in input_file_part],
     }
     return input_files
+
 
 rule policy_tables_generator:
     input:
@@ -554,10 +697,10 @@ rule policy_tables_generator:
         policy_output_helper_functions = "code/policy_output_helper_functions.r",
     output:
         tables = [
-            TEX_FRAGMENTS / "{table_type}_frac={audit_amount}_tauT={audit_tau}{audit_T}.tex",
+            TEX_FRAGMENTS / "{outcome_type}_frac={audit_amount}_tauT={audit_tau}{audit_T}.tex",
         ]
     wildcard_constraints:
-        table_type = "(expected_fee|outcome_dwl|outcome_emis)",
+        outcome_type = "(expected_fee|outcome_dwl_emis)",
         audit_tau = r"(low|med|high|all)\-",
         audit_T = r"\d+(week|month)",
     threads: 1
@@ -569,64 +712,36 @@ rule policy_tables_generator:
 # is from individual_figures/expected_fee_1pct_1week.tex, which in turn
 # includes the three sub-tables for different tau levels.
 # We could make this shorter with expand(), but it's this way for clarity.
-
-rule policy_table_expected_fee_1pct_1week:
+rule policy_table_expected_fee_1pct:
+    # Order doesn't matter
     input:
         TEX_FRAGMENTS / "expected_fee_frac=1pct_tauT=high-1week.tex",
         TEX_FRAGMENTS / "expected_fee_frac=1pct_tauT=med-1week.tex",
         TEX_FRAGMENTS / "expected_fee_frac=1pct_tauT=low-1week.tex",
-    # Note: the individual_figures file of the same name is hand-written, but
-    # it's nice to give snakemake a way to decide whether to demand these files.
-    container: None
-    output:
-        touch(SNAKEMAKE_FLAGS / "expected_fee_1pct_1week")
-
-rule policy_table_expected_fee_1pct_3month:
-    input:
         TEX_FRAGMENTS / "expected_fee_frac=1pct_tauT=high-3month.tex",
         TEX_FRAGMENTS / "expected_fee_frac=1pct_tauT=med-3month.tex",
-        TEX_FRAGMENTS / "expected_fee_frac=1pct_tauT=low-3month.tex",
-    # Note: the individual_figures file of the same name is hand-written, but
-    # it's nice to give snakemake a way to decide whether to demand these files.
-    container: None
-    output:
-        touch(SNAKEMAKE_FLAGS / "expected_fee_1pct_3month")
 
-# Not currently used:
-rule policy_table_expected_fee_frac_optimal_100usd_T_1week:
-    input:
-        TEX_FRAGMENTS / "expected_fee_frac=optimal-100usd_tauT=med-1week.tex",
-    container: None
-    output:
-        touch(SNAKEMAKE_FLAGS / "expected_fee_optim_100")
-rule policy_table_expected_fee_frac_optimal_600usd_T_1week:
-    input:
-        TEX_FRAGMENTS / "expected_fee_frac=optimal-600usd_tauT=med-1week.tex",
-    container: None
-    output:
-        touch(SNAKEMAKE_FLAGS / "expected_fee_optim_600")
 
-rule policy_table_policy_outcomes_frac_1pct_T_1week:
+rule policy_table_outcomes_dwl_emiss_1pct:
     # This isn't a real rule that gets run. We just use it as a cleaner input list.
+    # Order doesn't matter
     input:
-        TEX_FRAGMENTS / "outcome_emis_frac=1pct_tauT=all-1week.tex",
-        TEX_FRAGMENTS / "outcome_dwl_frac=1pct_tauT=all-1week.tex",
-    container: None
-    output:
-        touch(SNAKEMAKE_FLAGS / "policy_outcomes_frac=1pct_T=1week")
+        TEX_FRAGMENTS / "outcome_dwl_emis_frac=1pct_tauT=low-1week.tex",
+        TEX_FRAGMENTS / "outcome_dwl_emis_frac=1pct_tauT=med-1week.tex",
+        TEX_FRAGMENTS / "outcome_dwl_emis_frac=1pct_tauT=high-1week.tex",
+        TEX_FRAGMENTS / "outcome_dwl_emis_frac=1pct_tauT=med-3month.tex",
+        TEX_FRAGMENTS / "outcome_dwl_emis_frac=1pct_tauT=high-3month.tex",
 
-rule policy_table_policy_outcomes_frac_1pct_T_3month:
-    input:
-        TEX_FRAGMENTS / "outcome_emis_frac=1pct_tauT=all-3month.tex",
-        TEX_FRAGMENTS / "outcome_dwl_frac=1pct_tauT=all-3month.tex",
-    container: None
-    output:
-        touch(SNAKEMAKE_FLAGS / "policy_outcomes_frac=1pct_T=3month")
+
 
 rule policy_snippets_generator:
+    """
+    Note that this goes one at a time, which is pretty inefficient, since each
+    one gets its own R session, but it works okay.
+    """
     input:
-        outcome_summaries = (STAN_FITS /
-            "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours" /
+        outcome_summaries = (POLICY_OUTCOMES / "main_spec" /
+            "09_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours" /
             "audit_outcome_summary_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.parquet",
         ),
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
@@ -645,7 +760,75 @@ rule policy_snippets_generator:
         audit_amount="(0pct|1pct|10pct|optimal-100usd|optimal-600usd)",
         audit_tauT = RE_AUDIT_tauT,
         CI = "(_CI)?",
+    threads: 1
+    resources:
+        mem_mb = 2500, # not enforced; see note in script
+    conda: "code/envs/r_scripts.yml"
+    script:
+        "code/policy_snippets_generator.R"
 
+
+# Same as tables, but make figures instead
+rule policy_graphs_generator:
+    input:
+        outcome_summaries = expand(
+            POLICY_OUTCOMES / "main_spec" /
+            "09_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours" /
+            "audit_outcome_summary_rule={audit_rule}_frac={{audit_amount}}_tauT={audit_tauT}.parquet",
+            audit_rule=["uniform", "target_x", "target_e_high", "target_e_low"],
+            audit_tauT=["low-1week", "low-3month", "med-1week", "med-3month",  "high-1week", "high-3month", "2500", "7500"],
+        ) +
+        expand(
+            POLICY_OUTCOMES / "main_spec" /
+            "09_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours" /
+            "audit_outcome_summary_rule={audit_rule}_frac=0pct_tauT={audit_tauT}.parquet",
+            audit_rule=["remote_low", "remote_high"],
+            audit_tauT=["low-1week", "low-3month", "med-1week", "med-3month",  "high-1week", "high-3month", "2500", "7500"],
+        ),
+        r_lib = "scratch/snakemake_flags/setup_r_library",
+        script = "code/policy_graphs_generator.R",
+        constants = "code/constants.json",
+        policy_output_helper_functions = "code/policy_output_helper_functions.r"
+    output:
+        plot_fee = "graphics/outcomes_fee_frac={audit_amount}.pdf",
+        plot_dwl_emis_ordinal = "graphics/outcomes_dwl_emis_frac={audit_amount}.pdf",
+        plot_dwl_emis_cardinal = "graphics/outcomes_dwl_emis_frac={audit_amount}_cardinal.pdf",
+    wildcard_constraints:
+        audit_amount="(0pct|1pct|10pct|optimal-100usd|optimal-600usd)",
+    threads: 1
+    conda: "code/envs/r_scripts.yml"
+    script:
+        "code/policy_graphs_generator.R"
+
+
+rule policy_snippets_generator_robustness:
+    input:
+        # Note: using the non-bootstrap version here.
+        outcome_summaries = (
+            POLICY_OUTCOMES /
+            "{robustness_spec}09_twopart_lognormal_heterog_alpha-period_8760_hours" /
+            "audit_outcome_summary_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.parquet",
+        ),
+        r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
+        script = "code/policy_snippets_generator.R",
+        constants = "code/constants.json",
+        policy_output_helper_functions = "code/policy_output_helper_functions.r",
+        robustness_spec_script = "code/model_data_prep_robustness.r",
+    output:
+        # We end up running this multiple times per policy, since we want
+        # different snippets. It's slightly slower, but means we don't end up
+        # with a ton of extra files.
+        snippets = TEX_FRAGMENTS / "{robustness_spec}OUTCOME={outcome}_RULE={audit_rule}_FRAC={audit_amount}_tauT={audit_tauT}{CI}.tex",
+    # log: "scratch/logs/policy_snippets/OUTCOME={outcome}_RULE={audit_rule}_FRAC={audit_amount}_tauT={audit_tauT}.log",
+    wildcard_constraints:
+        # Note that here robustness_spec does not allow for main_spec.
+        # This rule is just for robustness generation.
+        robustness_spec = r"(robustness[0-9]+)/",
+        audit_rule = "(none|remote_low|remote_high|uniform|target_x|target_e_low|target_e_high)",
+        # Note: currently the optimal-* form isn't supported.
+        audit_amount="(0pct|1pct|10pct|optimal-100usd|optimal-600usd)",
+        audit_tauT = RE_AUDIT_tauT,
+        CI = "(_CI)?",
     threads: 1
     resources:
         mem_mb = 2500,
@@ -653,52 +836,89 @@ rule policy_snippets_generator:
     script:
         "code/policy_snippets_generator.R"
 
+
 rule policy_required_snippets:
     # This isn't a real rule that gets run. We just use it as a cleaner input list.
     input:
         [TEX_FRAGMENTS / f for f in [
 
-        "OUTCOME=fee_p10_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=fee_p10_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        "OUTCOME=fee_p75_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "OUTCOME=fee_p99_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
 
-        "OUTCOME=fee_p90_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=fee_p90_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-
-        "OUTCOME=fee_mean_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=fee_mean_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-
+        "OUTCOME=fee_mean_RULE=uniform_FRAC=1pct_tauT=med-1week.tex",
+        "OUTCOME=fee_mean_RULE=target_x_FRAC=1pct_tauT=med-1week.tex",
+        "OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
         "OUTCOME=emission_tonCO2e_RULE=none_FRAC=0pct_tauT=high-3month.tex",
 
-        "OUTCOME=emission_reduce_pct_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-
-        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        "OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=2298.tex",
+        "OUTCOME=emission_reduce_pct_RULE=target_e_high_FRAC=1pct_tauT=2298.tex",
+        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=2298.tex",
+        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
         "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
         "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
-
+        "OUTCOME=emission_reduce_tonCO2e_RULE=target_x_FRAC=1pct_tauT=med-1week.tex",
+        "OUTCOME=emission_reduce_tonCO2e_RULE=uniform_FRAC=1pct_tauT=med-1week.tex",
         "OUTCOME=net_private_cost_per_mcf_pct_price_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
 
-        "OUTCOME=welfare_gain_pct_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "OUTCOME=welfare_gain_pct_RULE=uniform_FRAC=1pct_tauT=med-1week.tex",
+        "OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=med-1week.tex",
         "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
         "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
         "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
+        "OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=low-1week.tex",
+        "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=low-1week.tex",
+        "OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=high-3month.tex",
+        # Note: these vs_uniform ones also read the "uniform" rule output.
+        # We could have Snakemake track and require this, but haven't.
+        "OUTCOME=welfare_gain_pct_vs_uniform_RULE=target_x_FRAC=1pct_tauT=low-1week.tex",
+        "OUTCOME=welfare_gain_pct_vs_uniform_RULE=target_x_FRAC=1pct_tauT=high-3month.tex",
+        "OUTCOME=welfare_pct_of_target_e_low_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        "OUTCOME=welfare_pct_of_target_e_low_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
         ]]
-    container: None
-    output:
-        touch(SNAKEMAKE_FLAGS / "policy_required_snippets")
+
+
+rule policy_required_snippets_robustness:
+    # This isn't a real rule that gets run. We just use it as a cleaner input list.
+    input:
+        [TEX_FRAGMENTS / f"robustness{idx}" / f
+        for idx in range(1, 53)
+        for f in [
+        # "OUTCOME=fee_p10_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "OUTCOME=fee_p10_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        # "OUTCOME=fee_p90_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "OUTCOME=fee_p90_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        # "OUTCOME=fee_mean_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
+        # "OUTCOME=fee_mean_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        # "OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=2500.tex",
+        # "OUTCOME=emission_tonCO2e_RULE=none_FRAC=0pct_tauT=high-3month.tex",
+        # "OUTCOME=emission_reduce_pct_RULE=target_e_high_FRAC=1pct_tauT=2500.tex",
+        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        # "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
+        # "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
+        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        "OUTCOME=emission_reduce_tonCO2e_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "OUTCOME=emission_reduce_tonCO2e_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
+        # "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=2500.tex",
+        # "OUTCOME=net_private_cost_per_mcf_pct_price_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
+        # "OUTCOME=welfare_gain_pct_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
+        # "OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        # "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
+        # "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
+        "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        ]
+        ]
+
 
 rule policy_audit_gains_rel_plot:
     input:
         outcome_summaries = expand(
-            STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours" /
+            POLICY_OUTCOMES / "main_spec" /
+            "09_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours" /
             "audit_outcome_summary_rule={audit_rule}_frac={{audit_amount}}_tauT={audit_tauT}.parquet",
             audit_rule=["uniform", "target_x", "target_e_high"],
-            audit_tauT=["low-1week", "med-1week", "med-3month",  "high-1week", "high-3month"],
+            audit_tauT=["low-1week", "low-3month", "med-1week", "med-3month",  "high-1week", "high-3month"],
         ),
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/policy_audit_gains_rel_plot.R",
@@ -708,12 +928,10 @@ rule policy_audit_gains_rel_plot:
         "graphics/audit_gains_rel_plot_{out_measure}_frac={audit_amount}{simple}.pdf",
 
     wildcard_constraints:
-        out_measure = "(dwl|emis|fee_per_kg_p90|fee_per_kg_mean|fee_per_kg_med|fee_per_kg_p10)",
+        out_measure = "(dwl|emis|fee_per_kg_mean|fee_per_kg_med|fee_per_kg_p[0-9]{2})",
         audit_amount="(0pct|1pct|10pct|optimal-100usd|optimal-600usd)",
         simple = "(_simple)?"
     threads: 1
-    resources:
-        mem_mb = 3000,
     conda: "code/envs/r_scripts.yml"
     script:
         "code/policy_audit_gains_rel_plot.R"
@@ -724,19 +942,13 @@ rule policy_audit_gains_rel_plot:
 rule output_model_fits:
     input:
         distribution_fits = [
-            STAN_FITS / "01_twopart_lognormal-bootstrap/model_fit.rds",
-            STAN_FITS / "03_twopart_lognormal_meas_err/model_fit.rds", # bootstrapped measurement error isn't working yet
-            # STAN_FITS / "05_twopart_normal_qr/model_fit.rds",
-            STAN_FITS / "02_twopart_lognormal_alpha-bootstrap-period_8760_hours/model_fit.rds",
-            STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours/model_fit.rds",
+            STAN_FITS / "main_spec" /
+            "09_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours/model_fit.rds",
         ],
-        measurements = "data/generated/methane_measures/matched_wells_all.rds",
+        measurements = "data/generated/methane_measures/matched_wells_with_dbscan.parquet",
         stan_data_json = [
-            STAN_FITS / "01_twopart_lognormal-bootstrap/stan_data.json",
-            STAN_FITS / "03_twopart_lognormal_meas_err/stan_data.json",
-            # STAN_FITS / "05_twopart_normal_qr/stan_data.json",
-            STAN_FITS / "02_twopart_lognormal_alpha-bootstrap-period_8760_hours/stan_data.json",
-            STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours/stan_data.json",
+            STAN_FITS / "main_spec" /
+            "09_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours/stan_data.json",
         ],
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/output_model_fits.R",
@@ -744,12 +956,8 @@ rule output_model_fits:
         model_prob_leak_plot = "graphics/model_prob_leak_plot.pdf",
         model_cost_vs_q_plot = "graphics/model_cost_vs_q_plot.pdf",
         model_cost_vs_q_dwl_plot = "graphics/model_cost_vs_q_dwl_plot.pdf",
-        model_coef_obs_leak = TEX_FRAGMENTS / "model_parameters_obs_leak.tex",
-        model_coef_leak_size = TEX_FRAGMENTS / "model_parameters_leak_size.tex",
-        model_coef_footer_obs_leak  = TEX_FRAGMENTS / "model_parameters_footer_obs_leak.tex",
-        model_coef_footer_leak_size = TEX_FRAGMENTS / "model_parameters_footer_leak_size.tex",
-        # model_cost_alpha_by_leak_size_bin_plot = "graphics/model_cost_alpha_by_leak_size_bin_plot.pdf",
-        # model_leak_size_by_leak_size_bin_plot  = "graphics/model_leak_size_by_leak_size_bin_plot.pdf",
+        model_coef = TEX_FRAGMENTS / "model_parameters.tex",
+        model_coef_footer  = TEX_FRAGMENTS / "model_parameters_footer.tex",
         model_cost_alpha_histogram = "graphics/model_cost_alpha_histogram.pdf",
         model_prob_size_above_threshold_histogram = "graphics/model_prob_size_above_threshold_histogram.pdf",
     threads: 1
@@ -782,10 +990,12 @@ rule plot_natural_gas_prices:
     # some slow code, and I don't want to re-run that every time I change the plot
     input:
         nat_gas_prices = "data/generated/nat_gas_prices_by_basin.parquet",
+        matched_leakage = "data/generated/methane_measures/matched_wells_all.parquet",
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/plot_natural_gas_prices.R",
     output:
         nat_gas_price_timeseries = "graphics/nat_gas_price_timeseries.pdf",
+        nat_gas_price_histogram  = "graphics/nat_gas_price_histogram.pdf",
     threads: 1
     resources:
         mem_mb = 2000,
@@ -814,7 +1024,7 @@ rule bea_industry_facts:
 rule plot_well_operator_stats:
     input:
         well_pad_crosswalk = "data/generated/production/well_pad_crosswalk_1970-2018.parquet",
-        matched_leakage = "data/generated/methane_measures/matched_wells_all.rds",
+        matched_leakage = "data/generated/methane_measures/matched_wells_all.parquet",
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/plot_well_operator_stats.R",
     output:
@@ -822,7 +1032,7 @@ rule plot_well_operator_stats:
         wells_per_pad_histogram = "graphics/wells_per_pad_histogram.pdf"
     threads: 1
     resources:
-        mem_mb = 2000
+        mem_mb = 4000
     conda: "code/envs/r_scripts.yml"
     script:
         "code/plot_well_operator_stats.R"
@@ -834,6 +1044,8 @@ rule zip_for_replication:
     output:
         public_zip = "data/replication/replication_public.zip",
         drillinginfo_zip = "data/replication/replication_drillinginfo.zip",
+    threads: 1
+    conda: None
     script:
         "code/zip_for_replication.py"
 
@@ -850,19 +1062,20 @@ rule figures:
             "graphics/nat_gas_price_timeseries.pdf",
             rules.summary_stats_tables.output,
             # rules.outcomes_analysis_outputs.output,
-            "graphics/audit_shadow_price_plot.pdf",
+            # "graphics/audit_shadow_price_plot.pdf",
             "graphics/aggregate_abatement_curve.pdf",
             "graphics/audit_gains_rel_plot_dwl_frac=1pct.pdf",
             "graphics/audit_gains_rel_plot_emis_frac=1pct.pdf",
-            "graphics/audit_gains_rel_plot_emis_frac=1pct_simple.pdf",
-            rules.policy_table_expected_fee_1pct_1week.output,
-            rules.policy_table_expected_fee_1pct_3month.output,
-            rules.policy_table_policy_outcomes_frac_1pct_T_1week.output,
-            rules.policy_table_policy_outcomes_frac_1pct_T_3month.output,
-
+            rules.policy_table_expected_fee_1pct.input,
+            rules.policy_table_outcomes_dwl_emiss_1pct.input,
+            # rules.policy_table_policy_outcomes_frac_1pct_T_3month.output,
             rules.output_model_fits.output,
             rules.plot_epa_emissions.output,
             rules.plot_well_operator_stats.output,
+            "graphics/robustness_audit_result_dwl_rule=target_e_high_frac=1pct_tauT=med-3month.pdf",
+            "graphics/robustness_audit_result_emission_rule=target_e_high_frac=1pct_tauT=med-3month.pdf",
+            "graphics/outcomes_dwl_emis_frac=1pct.pdf",
+            "graphics/outcomes_fee_frac=1pct.pdf",
         ],
     output:
         "output/all_figures.pdf",
@@ -880,7 +1093,6 @@ rule slides:
         ],
     output:
         "output/2020-12-07_EI_RIP_slides.pdf",
-    container: None
     shell:
         LATEX_CMD
 
@@ -889,7 +1101,8 @@ rule paper:
     input:
         tex = "output/paper.tex",
         includes = rules.figures.input.includes,
-        snippets = rules.policy_required_snippets.output,
+        snippets = rules.policy_required_snippets.input,
+        # snippets_robust = rules.policy_required_snippets_robustness.input,
         snippets2 = TEX_FRAGMENTS / "oil_gas_industry_net_value.tex",
         bibs = [
             "output/refs.bib",
@@ -905,7 +1118,6 @@ rule paper:
             "graphics/frankenberg_etal_2016_fig1.jpg",
             "graphics/ORCIDiD_iconvector.pdf",
         ],
-    container: None
     output:
         "output/paper.pdf",
     shell:

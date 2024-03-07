@@ -1,3 +1,6 @@
+suppressMessages(
+  here::i_am("code/prep_nat_gas_price_data.R", uuid="46a17071-4b40-46ae-8160-38e15f7411d1")
+)
 source(here::here("code/shared_functions.r"))
 
 read_sheet <- function(filename) {
@@ -26,7 +29,16 @@ match_basin <- function(df, basin_mapping_csv) {
   # Note this is a m:m (cartesian) match -- a single basin can have multiple
   # series, and a series can be matched to multiple basins. We collapse by
   # taking the (unweighted) mean.
-  out <- safejoin::safe_inner_join(df, basin_mapping, by="price_series", check="B C M N L T") %>%
+  out <- df %>%
+    powerjoin::power_inner_join(
+      basin_mapping,
+      by="price_series",
+      check=merge_specs(
+        duplicate_keys_left = "ignore",
+        duplicate_keys_right = "ignore",
+        unmatched_keys_right = "ignore",
+      )
+    ) %>%
     dplyr::group_by(date, basin) %>%
     dplyr::summarize(
       price_nominal = mean_(price_nominal_per_mmbtu),
@@ -40,7 +52,13 @@ match_basin <- function(df, basin_mapping_csv) {
 adjust_for_inflation <- function(df, price_index_file) {
   stopifnot(length(price_index_file) == 1)
   price_index <- load_price_index(price_index_file, base_year=2019)
-  out <- safejoin::safe_inner_join(df, price_index, by="date", check="B C V L T") %>%
+  out <- powerjoin::power_inner_join(
+    df, price_index, by="date",
+    check=merge_specs(
+      duplicate_keys_left = "ignore",
+      unmatched_keys_left = "ignore",
+      unmatched_keys_right = "ignore",
+    )) %>%
     dplyr::mutate(price_real = price_nominal_per_mmbtu / price_index)
   out
 }

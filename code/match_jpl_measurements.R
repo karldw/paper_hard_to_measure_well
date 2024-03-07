@@ -1,7 +1,10 @@
+suppressMessages(
+  here::i_am("code/match_jpl_measurements.R", uuid="bb6782d2-63d8-4013-a394-b10ba4a71e55")
+)
 
 source(here::here("code/shared_functions.r"))
 
-options(scipen=5, SOURCE_DATE_EPOCH=0)
+options(scipen=5, SOURCE_DATE_EPOCH=0, warn=1)
 set.seed(6350) # CRS as seed? Sure.
 
 # Note on variable names:
@@ -10,8 +13,8 @@ set.seed(6350) # CRS as seed? Sure.
 # There are other variables that report the average on days when production was
 # happening, but I don't use those (maybe I should?).
 
-LON_LAT_CRS <- sf::st_crs(4326) # https://epsg.io/4326
-OUTPUT_CRS <- sf::st_crs(6350) # https://epsg.io/6350 (CONUS Albers)
+LON_LAT_CRS <- sf::st_crs(CRS_LONGLAT_int) # https://epsg.io/4326
+OUTPUT_CRS  <- sf::st_crs(CRS_PROJECT_int) # https://epsg.io/6350 (CONUS Albers)
 MAX_ACCEPTABLE_MATCH_DIST_METERS <- 500
 # These are the source types we'll keep. There are others, like landfills and
 # dairies, that we don't care about. This is a list of oil and gas types.
@@ -92,6 +95,7 @@ read_jpl_sites <- function(input_files) {
     sf::st_transform(OUTPUT_CRS)
   df
 }
+
 
 read_headers <- function(years, states) {
   header_dir <- here::here("data/generated/production/well_headers/")
@@ -236,8 +240,8 @@ load_monthly_prod <- function(wells_by_flight_day) {
   well_to_match <- wells_by_flight_day %>%
     dplyr::transmute(
       flight_date = flight_date,
-      year = lubridate::year(flight_date),
-      month = lubridate::month(flight_date),
+      year = as.integer(lubridate::year(flight_date)),
+      month = as.integer(lubridate::month(flight_date)),
       entity_id = entity_id
   )
   # These are just for speed, so we don't read anything we're positive we don't want
@@ -259,10 +263,18 @@ load_monthly_prod <- function(wells_by_flight_day) {
       entity_id %in% !!desired_entity_id,
     ) %>%
     dplyr::collect() %>%
-    # 1:m join (U), no column conflicts (C)
-    safejoin::safe_inner_join(well_to_match, by=c("entity_id", "year", "month"), check="U C")
+    powerjoin::power_inner_join(
+      well_to_match,
+      by=c("entity_id", "year", "month"),
+      check=merge_specs(
+        duplicate_keys_right = "ignore",
+        unmatched_keys_left = "ignore",
+        unmatched_keys_right = "ignore",
+      )
+    )
   prod
 }
+
 
 load_well_records <- function(flight_paths, states, nat_gas_price) {
   years <- flight_paths$flight_date %>% lubridate::year() %>% unique()
@@ -323,135 +335,14 @@ match_with_wells <- function(observed_sites, wells) {
     dplyr::ungroup() %>%
     ensure_id_vars(entity_id)
   if (nrow(sites_matched) != nrow(observed_sites)) {
-    warning(
+    warning(paste0(
       nrow(observed_sites) - nrow(sites_matched),
       " leaks didn't have a matching well"
-    )
+    ))
   }
   sites_matched
 }
 
-make_pairs_plots <- function(jpl_sites_matched) {
-  if (!rlang::is_installed("GGally")) {
-    stop("GGally package required for this function")
-  }
-  pseudo_log <- scales::pseudo_log_trans() # basically asinh
-
-  plt_matched <- jpl_sites_matched %>%
-    dplyr::mutate_at(dplyr::vars(oil_avg_bbld, gas_avg_mcfd, emiss_kg_hr, emiss_se_kg_hr), list(log=pseudo_log$transform)) %>%
-    sf::st_drop_geometry() %>%
-    GGally::ggpairs(
-      ggplot2::aes(color=production_type, alpha=0.7),
-      columns = c("emiss_kg_hr_log", "oil_avg_bbld_log", "gas_avg_mcfd_log", "persistence_frac"),
-      progress=FALSE
-    ) +
-    ggplot2::theme_bw()
-  save_plot(plt_matched, here::here("graphics/pairs_plot_matched_wells_jpl_di.pdf"), scale=3)
-
-}
-
-make_plots <- function(wells_all, jpl_sites_matched, ground_studies) {
-  # GAS_SCALE <- ggplot2::scale_x_continuous(trans="pseudo_log", breaks=c(0, 10, 100, 1000, 10000, 100000))
-  # EMISS_SCALE <- ggplot2::scale_y_continuous(trans="pseudo_log", breaks=c(0, 10, 30, 100, 1000))
-
-  make_plot_qq <- function(df, add_line=TRUE, ...) {
-    df <- dplyr::filter(df, emiss_kg_hr > 0)
-
-    params <- as.list(MASS::fitdistr(df$emiss_kg_hr, "log-normal")$estimate)
-    # The `...` here is just so I can pass in a color aesthetic in the combined case
-    plt <- ggplot2::ggplot(df, ggplot2::aes(sample=emiss_kg_hr, ...)) +
-      ggplot2::geom_qq(distribution=stats::qlnorm, dparams=params) +
-      ggplot2::scale_x_continuous(
-        trans="pseudo_log",
-        limits=c(-0.2, 3000),
-        breaks=c(0, 10, 30, 100, 1000)
-      ) +
-      ggplot2::scale_y_continuous(
-        trans="pseudo_log",
-        limits=c(-0.2, 3000),
-        breaks=c(0, 10, 30, 100, 1000)
-      ) +
-      ggplot2::theme_bw() +
-      ggplot2::labs(
-        x="Theoretical distribution (kg/hr)",
-        y="Observed distribution (kg/hr)"
-      )
-    if (add_line) {
-      plt <- plt + ggplot2::geom_qq_line(distribution=stats::qlnorm, dparams=params)
-    }
-    plt
-  }
-  make_plot_emiss_prod_point_density <- function(df, adjust=0.1) {
-    min_emiss <- min_(dplyr::filter(df, emiss_kg_hr > 0)$emiss_kg_hr)
-    plt <- df %>%
-      dplyr::mutate(emiss_kg_hr_filled =
-        dplyr::if_else(is.na(emiss_kg_hr), min_emiss - (0.1 * min_emiss), emiss_kg_hr)) %>%
-      dplyr::filter(gas_avg_mcfd > 0) %>%
-      ggplot2::ggplot(ggplot2::aes(x=gas_avg_mcfd, y=emiss_kg_hr_filled)) +
-      ggpointdensity::geom_pointdensity(adjust=adjust, alpha=0.8) +
-      # options are "magma", "plasma", "viridis", or "cividis"
-      ggplot2::scale_color_viridis_c(option="inferno")+
-      ggplot2::geom_hline(yintercept=min_emiss) +
-      ggplot2::scale_x_continuous(
-        trans="pseudo_log",
-        breaks=c(0, 10^(1:6)),
-        limits=c(0, 1.5e6)
-      ) +
-      ggplot2::scale_y_continuous(trans="pseudo_log", breaks=c(0, 10, 30, 100, 1000)) +
-      ggplot2::theme_bw() +
-      ggplot2::theme(legend.position="none") +
-      ggplot2::labs(
-        x="Average gas production (mcf/mo)",
-        y="Measured emissions (kg/hr)"#,
-        # color="Well\ncount"
-      )
-    plt
-  }
-  #
-  # plt_ecdf_jpl <- ggplot2::ggplot(jpl_sites_matched, ggplot2::aes(x=emiss_kg_hr)) +
-  #   ggplot2::stat_ecdf(geom="step") +
-  #   ggplot2::scale_x_log10() +
-  #   ggplot2::theme_bw()
-
-  plt_obs_count_jpl <- (make_plot_emiss_prod_point_density(wells_all) +
-    ggplot2::labs(
-      title="Most wells have no JPL-observed emissisons"
-    )) %>%
-    save_plot(here::here("graphics/observation_count_jpl_flights.pdf"))
-
-  plt_qq_jpl <- (make_plot_qq(jpl_sites_matched) +
-    ggplot2::labs(
-      title="Observed JPL measures are distributed log-normal"
-    ))
-    save_plot(plt_qq_jpl, here::here("graphics/jpl_flights_qq_plot.pdf"))
-
-  ground_studies <- dplyr::rename(ground_studies,
-    gas_avg_mcfd = gas_production_mcfd
-  )
-  plt_obs_count_ground <- (make_plot_emiss_prod_point_density(ground_studies, adjust=0.05) +
-    ggplot2::labs(
-      title="Ground measures have many fewer zeros"
-    )) %>%
-    save_plot(here::here("graphics/observation_count_ground_studies.pdf"))
-
-  plt_qq_ground <- (make_plot_qq(ground_studies) +
-    ggplot2::labs(
-      title="Ground-based measurements"
-    )) %>%
-    save_plot(here::here("graphics/ground_studies_qq_plot.pdf"))
-
-  to_plot_combined_qq <- dplyr::bind_rows(
-      dplyr::mutate(ground_studies, src = "Ground studies"),
-      sf::st_drop_geometry(dplyr::mutate(jpl_sites_matched, src = "JPL flights")),
-    )
-  plot_qq_combined <- make_plot_qq(to_plot_combined_qq, add_line = TRUE, color=src) +
-    # ggplot2::facet_grid(rows="src") +
-    ggplot2::labs(
-      title="Comparison QQ plots"
-    )
-  save_plot(plot_qq_combined, here::here("graphics/combined_ground_jpl_qq_plot.pdf"))
-
-}
 
 aggregate_to_well_pads <- function(wells_all, well_pad_mapping_file) {
   stopifnot(
@@ -460,17 +351,22 @@ aggregate_to_well_pads <- function(wells_all, well_pad_mapping_file) {
   )
   well_pad_mapping <- arrow::read_parquet(
     well_pad_mapping_file,
-    col_select=c("entity_id", "well_pad_id", "well_pad_lon", "well_pad_lat")
+    col_select=c("entity_id", "well_pad_id", "well_pad_lon", "well_pad_lat", "tot_count_wells_within_10km", "distance_to_nearest_pad_m")
   )
   # We drop study-specific columns here, but might want to bring them back.
   # n_overflights, persistence_frac, ...
   # NOTE: we're doing an inner join with well_pad_id here. That means wells that
   # aren't part of the well pad mapping will not be part of the output.
   well_pad_df <- wells_all %>%
-    # Check that the join is unique by right side (V), types match (T),
-    # columns don't collide (C), and all rows in left side are matched (m)
-    # Note: not currently true that all LHS are matched -- m instead of M warns.
-    safejoin::safe_inner_join(well_pad_mapping, by="entity_id", check="V m T C") %>%
+    # Note: not currently true that all LHS are matched -- inform instead of erroring.
+      powerjoin::power_inner_join(
+        well_pad_mapping,  by="entity_id",
+        check=merge_specs(
+          duplicate_keys_left = "ignore",
+          unmatched_keys_left = "inform",
+          unmatched_keys_right = "ignore",
+        )
+    ) %>%
     dplyr::group_by(well_pad_id) %>%
     dplyr::summarize(
       # These aggregating functions are defined in shared_functions.r
@@ -493,6 +389,8 @@ aggregate_to_well_pads <- function(wells_all, well_pad_mapping_file) {
       well_pad_lat = min(well_pad_lat),
       basin = min(basin),
       gas_frac_methane = min(gas_frac_methane),
+      tot_count_wells_within_10km = mean_(tot_count_wells_within_10km),
+      distance_to_nearest_pad_m = mean_(distance_to_nearest_pad_m),
       .groups="drop"
     )
 
@@ -837,9 +735,13 @@ data_to_check_matches <- function(snakemake) {
 
 match_full_state_names <- function(df) {
   state_names <- tibble::tibble(state_abb = state.abb, state_full = state.name)
-  safejoin::safe_inner_join(state_names, df,
-    # 1:m merge, require a match of all rows in df
-    by=c("state_abb"="state"), check="B C U L T N"
+  # 1:m merge, require a match of all rows in df
+  powerjoin::power_inner_join(state_names, df,
+    by=c("state_abb"="state"),
+    check=merge_specs(
+      duplicate_keys_right = "ignore",
+      unmatched_keys_left = "ignore",
+    )
   )
 }
 
@@ -847,14 +749,17 @@ match_commodity_prices <- function(df, price_file) {
   stopifnot("basin" %in% names(df), length(price_file) == 1)
   prices <- arrow::read_parquet(price_file, col_select=c("date", "basin", "price_real")) %>%
     dplyr::rename(gas_price_per_mcf = price_real)
-  out <- dplyr::mutate(df,
-      date_monthly = first_of_month(flight_date),
-    ) %>%
-    safejoin::safe_inner_join(
-      prices,
+  out <- df %>%
+    dplyr::mutate(date_monthly = first_of_month(flight_date)) %>%
+    powerjoin::power_inner_join(
       # Check that the join is m:1, all rows of left have a match, and there are
       # no conflicts in columns or types.
-      by=c("basin"="basin", "date_monthly"="date"), check="B C V M L T"
+      prices,
+      by=c("basin"="basin", "date_monthly"="date"),
+      check=merge_specs(
+        duplicate_keys_left = "ignore",
+        unmatched_keys_right = "ignore",
+      )
     ) %>%
     dplyr::select(-date_monthly) %>%
     dplyr::mutate(
@@ -951,7 +856,10 @@ match_jpl_california <- function(input_files) {
       )
     all_wells_flown_over <- wells %>%
       sf::st_drop_geometry() %>%
-      safejoin::safe_left_join(matched, by="entity_id", check="B C U V N L T")
+      powerjoin::power_left_join(
+        matched, by="entity_id",
+        check=merge_specs(unmatched_keys_left = "ignore")
+      )
     all_wells_flown_over
   }
   # Loop over flight_name and match wells and plumes for each flight.
@@ -988,6 +896,7 @@ match_jpl_california <- function(input_files) {
 
 
 if (!exists("snakemake")) {
+  message("This script is meant to be run with snakemake. Using a placeholder.")
   snakemake <- SnakemakePlaceholder(
     input = list(
       well_pad_crosswalk = "data/generated/production/well_pad_crosswalk_1970-2018.parquet",
@@ -1005,11 +914,11 @@ if (!exists("snakemake")) {
       nat_gas_prices = "data/generated/nat_gas_prices_by_basin.parquet"
     ),
     output = list(
-      plot_obs_count_jpl = "graphics/observation_count_jpl_flights.pdf",
-      plot_jpl_flights_qq = "graphics/jpl_flights_qq_plot.pdf",
+      # plot_obs_count_jpl = "graphics/observation_count_jpl_flights.pdf",
+      # plot_jpl_flights_qq = "graphics/jpl_flights_qq_plot.pdf",
       lyon_etal_2016 = "data/generated/methane_measures/lyon_etal_2016.parquet",
-      data_to_check_matches = "data/generated/methane_measures/data_to_check_matches.rds",
-      cleaned_matched_obs = "data/generated/methane_measures/matched_wells_all.rds",
+      ground_studies = "data/generated/methane_measures/ground_studies.parquet",
+      cleaned_matched_obs = "data/generated/methane_measures/matched_wells_all.parquet",
       aviris_match_fraction_dropped = "output/tex_fragments/aviris_match_fraction_dropped.tex"
     ),
     threads = 4,
@@ -1018,11 +927,15 @@ if (!exists("snakemake")) {
   )
 }
 
-main <- function(snakemake, make_extra_plots=FALSE) {
-  ground_studies <- load_ground_studies(snakemake@input)
-  lyon <- read_lyon_etal_2016(snakemake@input) %>% match_commodity_prices(snakemake@input$nat_gas_prices)
-  four_corners_df <- read_frankenberg_etal_2016(snakemake@input)
+main <- function(snakemake) {
+  ground_studies <- load_ground_studies(snakemake@input) %>%
+    arrow::write_parquet(snakemake@output[["ground_studies"]])
 
+  lyon <- read_lyon_etal_2016(snakemake@input) %>%
+    match_commodity_prices(snakemake@input$nat_gas_prices) %>%
+    arrow::write_parquet(snakemake@output[["lyon_etal_2016"]])
+
+  four_corners_df <- read_frankenberg_etal_2016(snakemake@input)
   jpl_ca_list <- match_jpl_california(snakemake@input)
   jpl_wells_all <- jpl_ca_list$observed_well_pads
   jpl_sites_matched <- jpl_ca_list$matched_wells
@@ -1034,7 +947,6 @@ main <- function(snakemake, make_extra_plots=FALSE) {
   # (see details in match_jpl_california)
   count_aviris_total <- jpl_ca_list$count_total
   count_aviris_match <- jpl_ca_list$count_would_have_matched
-
 
   wells_nm_co <- load_flight_paths(four_corners_df) %>%
     load_well_records(c("CO", "NM"), snakemake@input$nat_gas_prices)
@@ -1051,29 +963,12 @@ main <- function(snakemake, make_extra_plots=FALSE) {
     dplyr::right_join(wells_nm_co, by="entity_id") %>%
     aggregate_to_well_pads(snakemake@input[["well_pad_crosswalk"]])
 
-  df_list <- list(
-    jpl_wells_all = jpl_wells_all,
-    four_corners_all_wells = four_corners_all_wells,
-    lyon = lyon,
-    ground_studies = ground_studies
-  )
-  saveRDS(df_list, snakemake@output[["cleaned_matched_obs"]])
-
-  # NOTE: not using these plots.
-  if (make_extra_plots) {
-    # Make plots of JPL measures and ground studies.
-    make_plots(jpl_wells_all, jpl_sites_matched, ground_studies)
-    # Make plots of distributions across studies.
-  }
+  main_df <- dplyr::bind_rows(jpl_wells_all, four_corners_all_wells)
+  arrow::write_parquet(main_df, snakemake@output[["cleaned_matched_obs"]])
 
   write_match_percent(count_aviris_total, count_aviris_match,
-    snakemake@output$aviris_match_fraction_dropped
+    snakemake@output[["aviris_match_fraction_dropped"]]
   )
-
-  # Create output data:
-  # To add to this list, make sure the list names match names in snakemake@output
-  # list(lyon_etal_2016 = read_lyon_etal_2016(snakemake@input)) %>%
-    # write_datasets(snakemake@output)
 }
 
 arrow::set_cpu_count(snakemake@threads)

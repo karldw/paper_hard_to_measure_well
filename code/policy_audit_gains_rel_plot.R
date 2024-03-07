@@ -1,8 +1,58 @@
+suppressMessages(
+  here::i_am("code/policy_audit_gains_rel_plot.R", uuid="2547096c-b358-4e82-a172-12fb98006241")
+)
 
 source(here::here("code/shared_functions.r"))
+
+
+if (!exists("snakemake")) {
+  snakemake <- SnakemakePlaceholder(
+    input = list(
+       outcome_summaries = here::here(
+          "data/generated/policy_outcomes/main_spec/08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours",
+          c(
+            "audit_outcome_summary_rule=target_e_high_frac=1pct_tauT=high-1week.parquet",
+            "audit_outcome_summary_rule=target_e_high_frac=1pct_tauT=high-3month.parquet",
+            "audit_outcome_summary_rule=target_e_high_frac=1pct_tauT=low-1week.parquet",
+            "audit_outcome_summary_rule=target_e_high_frac=1pct_tauT=med-1week.parquet",
+            "audit_outcome_summary_rule=target_e_high_frac=1pct_tauT=med-3month.parquet",
+            "audit_outcome_summary_rule=target_e_high_frac=1pct_tauT=2500.parquet",
+            "audit_outcome_summary_rule=target_e_high_frac=1pct_tauT=7500.parquet",
+            "audit_outcome_summary_rule=target_x_frac=1pct_tauT=high-1week.parquet",
+            "audit_outcome_summary_rule=target_x_frac=1pct_tauT=high-3month.parquet",
+            "audit_outcome_summary_rule=target_x_frac=1pct_tauT=low-1week.parquet",
+            "audit_outcome_summary_rule=target_x_frac=1pct_tauT=med-1week.parquet",
+            "audit_outcome_summary_rule=target_x_frac=1pct_tauT=med-3month.parquet",
+            "audit_outcome_summary_rule=target_x_frac=1pct_tauT=2500.parquet",
+            "audit_outcome_summary_rule=target_x_frac=1pct_tauT=7500.parquet",
+            "audit_outcome_summary_rule=uniform_frac=1pct_tauT=high-1week.parquet",
+            "audit_outcome_summary_rule=uniform_frac=1pct_tauT=high-3month.parquet",
+            "audit_outcome_summary_rule=uniform_frac=1pct_tauT=low-1week.parquet",
+            "audit_outcome_summary_rule=uniform_frac=1pct_tauT=med-1week.parquet",
+            "audit_outcome_summary_rule=uniform_frac=1pct_tauT=med-3month.parquet",
+            "audit_outcome_summary_rule=uniform_frac=1pct_tauT=2500.parquet",
+            "audit_outcome_summary_rule=uniform_frac=1pct_tauT=7500.parquet"
+          )
+        ),
+      r_lib = "scratch/snakemake_flags/setup_r_library",
+      script = "code/policy_audit_gains_rel_plot.R",
+      constants = "code/constants.json",
+      policy_output_helper_functions = "code/policy_output_helper_functions.r"
+    ),
+    output = list(
+      "graphics/audit_gains_rel_plot_dwl_frac=1pct.pdf"
+    ),
+    wildcards = list(
+      audit_amount = "1pct",
+      out_measure = "dwl",
+      simple = ""
+    ),
+    threads = 1
+  )
+}
+
 source(snakemake@input[["policy_output_helper_functions"]])
 options(scipen = 99, mc.cores=snakemake@threads)
-memory_limit(snakemake@resources[["mem_mb"]])
 
 
 plot_rel_outcome <- function(df, outcome_var, outfile, fee_labels = c("detailed", "simple")) {
@@ -15,7 +65,7 @@ plot_rel_outcome <- function(df, outcome_var, outfile, fee_labels = c("detailed"
   )
   df %<>% dplyr::ungroup()
   df %<>% dplyr::filter(detect_threshold > 0 | !audit_rule %in% c("target_e", "remote"))
-  should_be_empty <- dplyr::count(df, audit_rule, time_T, tau) %>% dplyr::filter(n > 1)
+  should_be_empty <- dplyr::count(df, audit_rule, tau_T_str) %>% dplyr::filter(n > 1)
   if (nrow(should_be_empty) > 0) {
     print(should_be_empty)
     stop("Unexpected combos above")
@@ -90,30 +140,25 @@ plot_rel_outcome <- function(df, outcome_var, outfile, fee_labels = c("detailed"
   }
   relative_labels <- relative_label_list[[count_tau_T_levels]]
   # Make a small df here to make the labeling easier.
-  fee_label_df <- dplyr::distinct(df, tau, time_T, tau_T) %>%
+  fee_label_df <- dplyr::distinct(df, tau_T_str, tau_T_str_fct, tau_T) %>%
     dplyr::arrange(tau_T) %>%
     dplyr::mutate(
       relative_label = relative_label_list[[count_tau_T_levels]],
-
     )
 
   if (fee_labels == "detailed") {
-    fee_label_df %<>% dplyr::mutate(
-      tau_fct = factor(tau, levels=TAU_LEVELS, labels=c("2δ", "1δ", "$5")),
-      T_fct = factor(time_T, levels=T_LEVELS, labels = tidy_gsub(names(T_LEVELS), "(\\d+)", "\\1 ")),
-      tau_T_fct = factor(tau_T,
-        levels=sort(unique(tau_T)),
-        labels=paste("\n", relative_label, "\n(", as.character(T_fct), " × ", as.character(tau_fct), ")\n")
-      )
-    )
+    fee_label_df %<>% dplyr::mutate(tau_T_fct = tau_T_str_fct)
   } else {
     fee_label_df %<>% dplyr::mutate(
       tau_T_fct = factor(tau_T, levels=sort(unique(tau_T)), labels=relative_label)
     )
   }
-  fee_label_df %<>% dplyr::select(tau, time_T, tau_T_fct)
+  fee_label_df %<>% dplyr::select(tau_T_str, tau_T_fct)
   # Check that all rows match
-  df %<>% safejoin::safe_inner_join(fee_label_df, by=c("tau", "time_T"), check="BCVMNLT")
+  df %<>% powerjoin::power_inner_join(
+    fee_label_df, by="tau_T_str",
+    check=merge_specs(duplicate_keys_left = "ignore")
+  )
   fee_label <- "Fee"
 
   if (!all(df$audit_frac %in% c(0, 0.01))) {
@@ -131,7 +176,7 @@ plot_rel_outcome <- function(df, outcome_var, outfile, fee_labels = c("detailed"
   if (fee_label == "detailed") {
     plt <- plt + ggplot2::geom_errorbar(width=0.2, position=ggplot2::position_dodge(width=0.9))
   }
-  save_plot(plt_bar, outfile, reproducible=TRUE, scale=1.2)
+  save_plot(plt_bar, outfile, reproducible=TRUE, scale_mult=1.2)
 }
 
 
@@ -144,8 +189,12 @@ make_rel_outcome_barplots <- function(df, plot_file_list) {
     message(local_path)
     to_plot <- dplyr::filter(df,
       !audit_rule %in% c("none", "remote"),
-      tau %in% c(TAU_LEVELS[c("med", "high")]) |
-      (tau == TAU_LEVELS["low"] & time_T == T_LEVELS["1week"]),
+      tau_T_str %in% c(
+        "low-1week",
+        "med-1week", "med-3month",
+        "high-1week", "high-3month",
+        "2500", "7500"
+      ),
       audit_frac == 0.01 | audit_rule == "remote",
     )
     plot_rel_outcome(to_plot, out_measure, filename)
@@ -164,10 +213,10 @@ make_rel_outcome_barplots <- function(df, plot_file_list) {
   to_plot <- dplyr::filter(df,
     !audit_rule %in% c("none", "remote"),
     # small set of intermediate fee levels:
-    tau_T %in% c(
-      TAU_LEVELS["med"] * T_LEVELS["3month"],
-      TAU_LEVELS["high"] * T_LEVELS["3month"],
-      TAU_LEVELS["med"] * T_LEVELS["1week"]
+    tau_T_str %in% c(
+      "med-3month",
+      "high-3month",
+      "med-1week"
     ),
     audit_frac == 0.01 | audit_rule == "remote",
   ) %>% dplyr::mutate(
@@ -182,10 +231,11 @@ make_rel_outcome_barplots <- function(df, plot_file_list) {
 }
 
 
-const <- read_constants()
-TAU_LEVELS <- const$TAU_LEVELS
-T_LEVELS <- const$T_LEVELS
-SCM_PER_KG <- const$SOCIAL_COST_METHANE_PER_KG
+SCM_PER_KG <- read_constants()$SOCIAL_COST_METHANE_PER_KG
+
+if (isTRUE(snakemake@wildcards$simple == "_simple")) {
+  stop("Simple version of the graph needs to be repaired before it can be used.")
+}
 
 all_res_no_dup <- read_policy_summaries(
   snakemake@input[["outcome_summaries"]],

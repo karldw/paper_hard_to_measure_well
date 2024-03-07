@@ -33,13 +33,19 @@ fill_redundant_audit_rules <- function(df, time_H) {
   # but aren't estimated in outcomes_analysis.py, this function won't raise an
   # error.
 
+  merge_m_to_m <- merge_specs(
+    duplicate_keys_left = "ignore",
+    duplicate_keys_right = "ignore",
+    unmatched_keys_left = "ignore",
+    unmatched_keys_right = "ignore",
+  )
   # For audit_rule == none, fill all possibilities
   df_none <- full_options %>%
     dplyr::filter(audit_rule == "none") %>%
-    safejoin::safe_inner_join(
+    powerjoin::power_inner_join(
       dplyr::select(df, -audit_frac, -audit_cost, -tau_T, -detect_threshold),
       by="audit_rule",
-      check="B C L T"
+      check=merge_m_to_m
     )
 
   # For uniform and target_x:
@@ -48,20 +54,20 @@ fill_redundant_audit_rules <- function(df, time_H) {
   # It won't be the cases that all rows match in full_options, or in df
   df_uniform_targetx <- full_options %>%
     dplyr::filter(audit_rule %in% c("uniform", "target_x")) %>%
-    safejoin::safe_inner_join(
+    powerjoin::power_inner_join(
       dplyr::select(df, -detect_threshold),
       by=c("audit_rule", "audit_frac", "audit_cost", "tau_T"),
-      check="B C L T"
+      check=merge_m_to_m
     )
   # For remote:
   # Within groups of detect_threshold and tau_T, fill in the estimates across
   # values of audit_frac and audit_cost.
   df_remote <- full_options %>%
     dplyr::filter(audit_rule == "remote") %>%
-    safejoin::safe_inner_join(
+    powerjoin::power_inner_join(
       dplyr::select(df, -audit_frac, -audit_cost),
       by=c("audit_rule","detect_threshold", "tau_T"),
-      check="B C L T"
+      check=merge_m_to_m
     )
   # For target_e:
   # No filling -- no values can be filled in across estimates.
@@ -112,22 +118,60 @@ annualize_estimates <- function(df) {
   out
 }
 
+pretty_tau_T_label <- function(tau_T_str) {
+  gsubbed_str <- tau_T_str %>%
+    tidy_gsub("-", " ×\n", fixed = TRUE) %>% # replace - with " ×\n"
+    tidy_gsub("([0-9]+)([^\\s])", "\\1 \\2") %>% # add a space after numbers when there isn't one
+    # This is silly, but quick:
+    tidy_gsub("low", "Low", fixed = TRUE) %>%
+    tidy_gsub("med", "Medium", fixed = TRUE) %>%
+    tidy_gsub("high", "High", fixed = TRUE)
+
+  out <- dplyr::if_else(
+    grepl("^[0-9]+$", tau_T_str, perl = TRUE),
+    paste0("$", tau_T_str, " per\nkg per hr"),
+    gsubbed_str
+  )
+  out
+}
 
 make_tau_T <- function() {
   # read_constants() is in shared_functions.r, reading constants.json
   const <- read_constants()
-  df <- expand.grid(tau=const$TAU_LEVELS, time_T=const$T_LEVELS, KEEP.OUT.ATTRS=TRUE) %>%
+  df_cross <- expand.grid(tau=const$TAU_LEVELS, time_T=const$T_LEVELS, KEEP.OUT.ATTRS=TRUE) %>%
     dplyr::mutate(tau_T = tau * time_T)
-  stopifnot(rlang::is_named(df$tau), rlang::is_named(df$time_T))
-  tau_T_str <- paste0(names(df$tau), "-", names(df$time_T))
-  df <- dplyr::mutate(df, tau_T_str = tau_T_str)
+  stopifnot(rlang::is_named(df_cross$tau), rlang::is_named(df_cross$time_T))
+  # Manually add some more cases for graphs.
+  add_tau_T_rows <- dplyr::tibble(
+    tau_T = c(2298, 2500, 7500),
+    tau_str = paste0("manual ", tau_T),
+    T_str   = paste0("manual ", tau_T),
+    tau_T_str = as.character(tau_T),
+  )
+  df <- df_cross %>%
+    dplyr::mutate(
+      tau_str = names(tau),
+      T_str = names(time_T),
+      tau_T_str = paste0(tau_str, "-", T_str),
+    ) %>%
+    dplyr::select(-tau, -time_T) %>%
+    dplyr::bind_rows(add_tau_T_rows) %>%
+    dplyr::arrange(tau_T) %>%
+    # Set factor levels based on the sorted tau_T
+    dplyr::mutate(
+      tau_T_str_fct = factor(
+        tau_T_str,
+        levels = tau_T_str,
+        labels = pretty_tau_T_label(tau_T_str)
+      ),
+    )
   if (anyDuplicated(df$tau_T) != 0) {
     dups <- dplyr::group_by(df, tau_T) %>% dplyr::filter(dplyr::n() > 1) %>% dplyr::ungroup()
     print(dups)
     stop("Fix duplicates above:")
   }
   # Note: we check that all values match later.
-  stopifnot(nrow(df) > 2)
+  stopifnot(nrow(df) > 2, !anyNA(df))
   df
 }
 
@@ -148,15 +192,15 @@ read_one_summary <- function(filename, fill_redundant) {
     # adding other variables.
     df %<>% fill_redundant_audit_rules(time_H)
   }
-  imputed_N <- mean(df$dwl_tot_mean / df$dwl_mean_mean)
-  if (!isTRUE(all.equal(imputed_N, read_constants()$N_WELL_PADS))) {
-    stop(glue::glue("Number of well pads seems wrong {imputed_N} vs {N_WELL_PADS}"))
-  }
   tau_T_df <- make_tau_T()
   df %<>% dplyr::mutate(time_H = !!time_H, model_name = !!model_name) %>%
     annualize_estimates() %>%
     # Merge with the tau_T info and check that it's a m:1 join with all LHS rows matching
-    safejoin::safe_left_join(tau_T_df, by="tau_T", check="B C V L T")
+    powerjoin::power_left_join(tau_T_df, by="tau_T", check=merge_specs(
+        duplicate_keys_left = "ignore",
+        unmatched_keys_right = "ignore",
+      )
+    )
   df
 }
 
@@ -174,10 +218,10 @@ format_policy_details <- function(audit_rule, detect_threshold, latex=TRUE) {
     uniform_high = "Uniform",
     target_x_low = "Target covariates",
     target_x_high = "Target covariates",
-    target_e_low = "Target leaks, low threshold",
     target_e_high = "Target leaks, high threshold",
-    remote_low = "Remote, low threshold",
-    remote_high = "Remote, high threshold"
+    remote_high = "Remote, high threshold",
+    target_e_low = "Target leaks, low threshold",
+    remote_low = "Remote, low threshold"
   )
   if (!latex) {
     combo_labels %<>% tidy_gsub("$", "", fixed=TRUE)
@@ -214,4 +258,17 @@ audit_amount_to_number <- function(audit_amount_str, type=c("fixed", "optimal"))
   num <- as.numeric(number_part)
   stopifnot(!anyNA(num))
   num
+}
+
+
+check_n_unique_audit_frac <- function(df, n_expected = 1L) {
+  stopifnot(length(n_expected) == 1, n_expected >= 1)
+  num_audit_frac_levels <- df %>%
+    dplyr::filter(.data$audit_rule %in% c("uniform", "target_x", "target_e")) %>%
+    dplyr::distinct(.data$audit_frac) %>%
+    nrow()
+  if (num_audit_frac_levels != n_expected) {
+    stop(paste0("Expected: ", n_expected, " audit_frac levels, but there were actually ", num_audit_frac_levels))
+  }
+  invisible(NULL)
 }

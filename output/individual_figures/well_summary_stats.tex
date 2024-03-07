@@ -5,13 +5,14 @@
 \vspace{0.7\baselineskip plus 0.5\baselineskip}
 % TODO: format this better!
 
-\begin{tabularx}{0.88\textwidth}{l d d d d}
+% previously 0.88
+\begin{tabularx}{0.99\textwidth}{l d d d d}
 \toprule
-& \textcol{Mean} & \textcol{Std. dev.} & \textcol{p10} & \textcol{p90} \\
+\hspace*{0.36\textwidth} & \textcol{Mean} & \textcol{Std. dev.} & \textcol{p10} & \textcol{p90} \\
 \midrule
 \multicolumn{5}{l}{%
 Panel A: Well pads included in flyover studies
-(\textsc{n} = \input{../tex_fragments/num_rows_aviris_matched.tex})
+(\textsc{n}~=~\input{../tex_fragments/num_rows_aviris_matched.tex})
 }\\
 \midrule
 \input{../tex_fragments/well_summary_stats_aviris_matched.tex}\\
@@ -19,7 +20,7 @@ Panel A: Well pads included in flyover studies
 \midrule
 \multicolumn{5}{l}{
 Panel B: Well pads checked by \textcite{Lyon/Alvarez/Zavala-Araiza/Brandt/Jackson/Hamburg:2016}
-(\textsc{n} = \input{../tex_fragments/num_rows_lyon.tex})
+(\textsc{n}~=~\input{../tex_fragments/num_rows_lyon.tex})
 }\\
 \midrule
 
@@ -27,7 +28,7 @@ Panel B: Well pads checked by \textcite{Lyon/Alvarez/Zavala-Araiza/Brandt/Jackso
 
 \midrule
 \multicolumn{5}{l}{Panel C: All well pads active in June 2018 in CA, NM, and CO
-(\textsc{n} = \input{../tex_fragments/num_rows_all_2018.tex})}\\
+(\textsc{n}~=~\input{../tex_fragments/num_rows_all_2018.tex})}\\
 \midrule
 \input{../tex_fragments/well_summary_stats_all_2018.tex}\\
 
@@ -42,11 +43,13 @@ Only wells that report positive gas production are included.
 In all three panels, wells are grouped into pads; see text for details.
 mcfd means thousands of standard cubic feet per day.
 bbld means barrels of oil per day.
-Well data from \textcite{DrillingInfo}.
+Well data in panel A and C from \textcite{DrillingInfo}.
 Flight data from \textcite{Duren/etal:2019, Frankenberg/etal:2016}, covering parts of California, New Mexico, and Colorado.
-In panel~A, leak size is for wells with non-zero leaks
-(\textsc{n} = \input{../tex_fragments/num_rows_aviris_with_leak.tex}).
+In panel~A, leak size is for well pads with non-zero leaks
+(\textsc{n}~=~\input{../tex_fragments/num_rows_aviris_with_leak.tex}).
 Prices are local to the month and state of the study, adjusted to 2019 USD.
+Panels A and C include our geospatial measures ``N wells within 10~km'' and ``Dist to next pad (km)'' that were not calculated in \textcite{Lyon/Alvarez/Zavala-Araiza/Brandt/Jackson/Hamburg:2016}.
+
 
 \end{tablenotes}
 \end{threeparttable}

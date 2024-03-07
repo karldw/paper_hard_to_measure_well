@@ -29,6 +29,24 @@ DataParam = namedtuple(
     ],
 )
 
+FEE_PERCENTILES_TO_REPORT = {
+    "fee_per_kg_p01": 0.01,
+    "fee_per_kg_p05": 0.05,
+    "fee_per_kg_p10": 0.10,
+    "fee_per_kg_p20": 0.20,
+    "fee_per_kg_p25": 0.25,
+    "fee_per_kg_p30": 0.30,
+    "fee_per_kg_p40": 0.40,
+    "fee_per_kg_med": 0.50,
+    "fee_per_kg_p60": 0.60,
+    "fee_per_kg_p70": 0.70,
+    "fee_per_kg_p75": 0.75,
+    "fee_per_kg_p80": 0.80,
+    "fee_per_kg_p90": 0.90,
+    "fee_per_kg_p95": 0.95,
+    "fee_per_kg_p99": 0.99,
+}
+
 OutcomesOneDraw = namedtuple(
     "OutcomesOneDraw",
     [
@@ -38,9 +56,9 @@ OutcomesOneDraw = namedtuple(
         "emis_tot",
         "tot_cost_per_kg_mean",
         "fee_per_kg_mean",
-        "fee_per_kg_med",
-        "fee_per_kg_p10",
-        "fee_per_kg_p90",
+    ]
+    + list(FEE_PERCENTILES_TO_REPORT.keys())
+    + [
         "net_private_cost_per_mcf_pct_price",
         "shadow_price",
         "audit_rule",
@@ -112,10 +130,10 @@ def dwl_diff2(self, r):
     diff2 = (
         self.recip_A ** (self.recip_α)
         * self.e ** (1.0 + self.recip_α)
-        * self.τT ** 2
+        * self.τT**2
         * (self.pH + self.τT * r) ** (self.recip_α - 2.0)
         * (-self.α * (self.δH + self.pH) + self.δH - self.τT * r)
-        * self.recip_α ** 2
+        * self.recip_α**2
     )
     return diff2
 
@@ -184,7 +202,7 @@ def prob_leak_times_r_diff1(self, r):
     """
     diff1 = (
         self.recip_A ** (self.recip_α)
-        * self.e ** self.recip_α
+        * self.e**self.recip_α
         * (self.pH + self.τT * r) ** (self.recip_α - 1)
         * (self.α * (self.pH + self.τT * r) + self.τT * r)
         * self.recip_α
@@ -205,11 +223,11 @@ def prob_leak_times_r_diff2(self, r):
     """
     diff2 = (
         self.recip_A ** (self.recip_α)
-        * self.e ** self.recip_α
+        * self.e**self.recip_α
         * self.τT
         * (self.pH + self.τT * r) ** (self.recip_α - 2.0)
         * (self.α * (2 * self.pH + self.τT * r) + self.τT * r)
-        * self.recip_α ** 2
+        * self.recip_α**2
     )
     return diff2
 
@@ -253,11 +271,11 @@ def prob_no_leak_diff2(self, r):
     """
     diff2 = (
         self.recip_A ** (self.recip_α)
-        * self.τT ** 2
+        * self.τT**2
         * self.e ** (self.recip_α)
         * (self.α - 1)
         * (self.pH + self.τT * r) ** (self.recip_α - 2)
-        * self.recip_α ** 2
+        * self.recip_α**2
     )
     return diff2
 
@@ -752,7 +770,6 @@ def read_constants(json_file="code/constants.json"):
 
     * LEAK_SIZE_DEF is 5.0 kg/hr, based on the detection threshold of AVIRIS-NG (*not* the policy detection threshold)
     * AUDIT_COST_TO_COMPARE_FIXED_VS_OPTIM_DWL is $600/audit
-    * N_WELL_PADS is the number of well pads in this data. It's checked in some of the code, but included here for convenience.
     * MODEL_NAMES known model names, categorized.
         * note that the "normal" models still get a lognormal treatment
     """
@@ -763,7 +780,6 @@ def read_constants(json_file="code/constants.json"):
         "METHANE_GWP",
         "LEAK_SIZE_DEF",
         "AUDIT_COST_TO_COMPARE_FIXED_VS_OPTIM_DWL",
-        "N_WELL_PADS",
         "TAU_LEVELS",
         "T_LEVELS",
         "MODEL_NAMES",
@@ -783,7 +799,7 @@ def abatement_cost_per_pad(prob_leak, data_param):
     A = data_param.cost_coef[..., 0]
     α = data_param.cost_coef[..., 1]
     α_plus1 = α + 1
-    abatement_cost = -(A / α_plus1) * (prob_leak ** α_plus1)
+    abatement_cost = -(A / α_plus1) * (prob_leak**α_plus1)
 
     return abatement_cost
 

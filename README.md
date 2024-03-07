@@ -1,5 +1,5 @@
 
-# Hard to Measure Well: Can Feasible Policies Reduce Methane Emissions?
+# Information Matters: Feasible Policies for Reducing Methane Emissions
 
 Authors: Karl Dunkle Werner [![ORCID logo](https://info.orcid.org/wp-content/uploads/2020/12/orcid_16x16.gif)](https://orcid.org/0000-0003-0523-7309) and [Wenfeng Qiu](https://wenfengqiu.com/)
 
@@ -9,8 +9,8 @@ Authors: Karl Dunkle Werner [![ORCID logo](https://info.orcid.org/wp-content/upl
 1. Read this README
 1. Make sure you have an appropriate OS (Linux or WSL2) and the necessary computing resources (see below)
 1. Unzip the replication files.
-1. If the data is saved somewhere outside the project folder, mount a copy inside the project folder. (Useful for development only)
-1. Install Conda and Snakemake (see below)
+1. If the data is saved somewhere outside the project folder, mount or link a copy inside the project folder. (Useful for development only)
+1. Install Mamba and Snakemake (see below)
 1. Run Snakemake
 1. Check results
 
@@ -26,34 +26,31 @@ unzip path/to/replication_drillinginfo.zip -d .
 # 4. OPTIONAL
 # If the data is saved somewhere outside the project folder, mount
 # a copy inside the project folder.
-# This is only necessary if the data are stored somewhere *outside*
+# This is only useful if the data are stored somewhere *outside*
 # the project folder. You may need to change these paths to fit
 # your situation
 data_drive="$HOME/Dropbox/data/methane_abatement"
-scratch_drive="$HOME/scratch/methane_abatement"
 project_dir="$(pwd)"
-mkdir -p "$scratch_drive" "$project_dir/data" "$project_dir/scratch"
-sudo mount --bind "$data_drive"    "$project_dir/data"
-sudo mount --bind "$scratch_drive" "$project_dir/scratch"
+cd "$project_dir"
+mkdir -p "scratch"  # optional - feel free to have this as a link to somewhere else
+ln -s "$data_drive" "data"
 
 
-# 6. Install Conda and Snakemake
-# If conda is not already installed, follow instructions here:
-# https://docs.conda.io/en/latest/miniconda.html
-conda env create --name snakemake --file code/envs/install_snakemake.yml
-conda activate snakemake
+# 5. Install Mamba and Snakemake
+# If mamba is not already installed, follow instructions here:
+# https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html
+mamba env create --name snakemake --file code/envs/install_snakemake.yml
+mamba activate snakemake
 snakemake --version
-singularity --version
-# Should show versions, not an error
+# Should show version, not an error
 
-
-# 7. Run Snakemake to create all outputs
-# (this takes about a day with 4 CPU)
+# 6. Run Snakemake to create all outputs
+# (this takes about a day with 12-core CPU)
 /usr/bin/time -v snakemake
 # snakemake --dry-run to see what will be run
 
 
-# 8. Check results (optional and slow)
+# 7. Check results (optional and slow)
 # Check everything into git, rerun snakemake, and verify results are the same.
 git init
 git add .
@@ -61,9 +58,9 @@ git commit -m "Replication run 1"
 snakemake --delete-all-output
 rm -r scratch/*
 rm -r .snakemake/conda
-snakemake --use-conda --use-singularity --singularity-args='--cleanenv'
+snakemake --use-conda
 # Results should be binary-identical if everything worked correctly
-# (except software_cites_r.bib, which has some manual edits)
+# (except software_cites_r.bib, which has some manual edits, and a few of the PDF graphs)
 git diff
 ```
 
@@ -72,46 +69,46 @@ git diff
 
 ### Operating system
 
-This code uses Singularity. You don't have to install it yourself, but you do have to be on an operating system where it can be installed. Good options are any recent version of Linux or Windows WSL2 (but not WSL1).
+The code was developed on Linux, and should mostly work on other operating systems. Requirements include:
+(1) a working compiler (provided by mamba), and
+(2) some of the commands use unix tools like `sed`, `tail`, and `cat`.
+The compiler is a firm requirement; the unix tools could probably be avoided if you really wanted to.
 
-On macOS, or on Windows outside WSL2, things are more difficult. [One approach](https://sylabs.io/guides/3.5/admin-guide/installation.html#installation-on-windows-or-mac) is to install Vagrant, use Vagrant to create a virtual machine, and run everything inside that virtual machine. Good luck.
+This code used to use Singularity as a container mechanism, but since Singularity can only be installed on Linux, this required either (a) directly using Linux, (b) using WSL2, or (3) running a virtual machine. None of those are great for people who just want to run code.
 
-For more detail, see [Singularity's installation docs](https://singularity.hpcng.org/admin-docs/3.7/installation.html) (only the pre-install requirements; conda will [install Singularity](https://github.com/conda-forge/singularity-feedstock) for you)
+Additionally, we got to a point where there were weird segfault in CmdStan when compiled with certain (common) build flags like `-march=native`, possibly related to [this issue](https://github.com/apptainer/singularity/issues/845). So.. that was a pain.
 
 
 ### Software
 
-This project uses [Snakemake](https://snakemake.readthedocs.io) (v6.8.0) and [Conda](https://docs.conda.io/en/latest/miniconda.html) (v4.10.3) to manage dependencies.
-- To get started, first install Conda (mini or full-sized).
-- Then use Conda to install Snakemake and Singularity from the file `install_snakemake.yml` (in the replication zipfile).
+This project uses [Snakemake](https://snakemake.readthedocs.io) (v7.32.4) and [Mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html) (v4.10.3) to manage dependencies.
+- To get started, first install Mamba (mini or full-sized).
+- Then use Mamba to install Snakemake  from the file `code/envs/install_snakemake.yml` (in the replication zipfile).
 
-In a terminal:
-
-```sh
-conda env create --name snakemake --file code/envs/install_snakemake.yml
-```
+See code above.
 
 Run all other commands in that activated environment.
-If you close the terminal window, you need to re-run `conda activate snakemake` before running the rest of the commands.
+If you close the terminal window, you need to re-run `mamba activate snakemake` before running the rest of the commands.
 These downloads can be large.
+
+Note that other versions of Snakemake might work, but Snakemake has a lot of breaking changes from version to version. Versions of Snakemake >=7.8.0 and < 8.0.0 should probably be fine.
+Mamba has fewer breaking changes; the newest should be fine.
 
 
 #### What does Snakemake do?
 
-Snakemake uses rules to generate outputs and manages the code environment to make it all work.
-
-In particular, we're following a pattern Snakemake calls an [Ad-hoc combination of Conda package management with containers](https://snakemake.readthedocs.io/en/stable/snakefiles/deployment.html#ad-hoc-combination-of-conda-package-management-with-containers).
-
-Snakemake uses Singularity (an alternative to Docker) to run code in a virtual environment, and uses conda to install packages.
-All of this is handled transparently as the rules are run.
+Snakemake uses rules to generate outputs and manages the code environments to make it all work.
+Snakemake uses mamba to install packages. All of this is handled transparently as the rules are run.
 
 It can be useful to run `snakemake --dry-run` to see the planned jobs.
 
 Snakemake keeps track of what needs to run and what doesn't. If something goes wrong midway through, snakemake will see that some outputs are up-to-date and others aren't, and won't re-run the things that don't need it.
 
-The Snakefile is set up to retry failing jobs once, to avoid issues where temporary issues cause the build to fail (e.g. "Error creating thread: Resource temporarily unavailable").
-If you would rather not restart failed jobs, remove the line `workflow.restart_times = 1` from `Snakefile`.
-Note that Snakemake will still stop after failing twice (it will not run other jobs).
+Snakemake tries to manage computing resources (RAM and CPU) based on the claims made in the Snakemake rules. Snakemake does not enforce these limits; some of the code does.
+
+In Snakemake, we have code that unsets these environment variables, with the aim of avoiding path confusion:
+`RENV_PATHS_ROOT`, `R_LIBS`, `R_LIBS_USER`, `R_LIBS_SITE`, `CMDSTAN`.
+
 
 
 ### Files and data
@@ -138,15 +135,14 @@ unzip path/to/replication_drillinginfo.zip -d .
 Less straightforward, arguably better for development
 
 - Store the `data` and `scratch` folders somewhere else (e.g. `data` in Dropbox).
-- Create your own [bind mounts](https://unix.stackexchange.com/questions/198590/what-is-a-bind-mount) to point to the `data` and `scratch` folders.
-(See an example in `code/bind_mount_folders.sh`)
+- Create symbolic links (on Windows, 'junctions') to point to the `data` and `scratch` folders.
+- If you don't like symlinks, [bind mounts](https://unix.stackexchange.com/questions/198590/what-is-a-bind-mount) are fine too.
 
-For people familiar with Singularity:
-Note that `$SINGULARITY_BIND` doesn't work, because it's not used until the Singularity container is running, so Snakemake thinks files are missing.
-
-For people familiar with symlinks:
-Using symlinks (in place of bind mounts) do not work here, because Singularity will not follow them.
-
+Example:
+```sh
+ln -s path/to/dropbox/data/this_project data
+ln -s path/to/scratch_drive scratch
+```
 
 
 #### File structure
@@ -158,11 +154,8 @@ All files in `output/tex_fragments`, `data/generated`, and `scratch/` are auto-g
 ### Other
 
 - The PDF outputs are built with Latexmk and LuaLaTeX.
-    - For size reasons, LuaLaTeX is not included in the set of software managed by conda. The `paper` job, which runs `latexmk` might fail if it's not installed on your computer. All the outputs up to that point will be present.
+    - For size reasons, LuaLaTeX is not included in the set of software managed by mamba. The `paper` job, which runs `latexmk` might fail if it's not installed on your computer. All the outputs up to that point will be present.
     - The tex files use some fonts that are widely distributed, but may not be installed by default.
-- Note that the code depends on [`moodymudskipper/safejoin`](https://github.com/moodymudskipper/safejoin) which is *a different package* than `safejoin` on CRAN.
-`moodymudskipper/safejoin` will be [renamed](https://github.com/moodymudskipper/safejoin/issues/44).
-    - In case the original author deletes the repository, a copy is [here](https://github.com/karldw/safejoin).
 
 
 ## Computing resources for a full run
@@ -210,31 +203,12 @@ I believe my Enverus data subset can be shared with people who have access to th
 
 ## Development docs
 
-These notes are modestly outdated, and aren't useful for replication.
-
-### Other installation instructions
-
-#### Installing Stan
-
-1. Download and extract CmdStan
-1. Add these lines to a file named `local` in the CmdStan `make/` directory. (Create `local` if it doesn't already exist)
-```
-O_STANC=3
-STANCFLAGS+= --O --warn-pedantic
-STAN_THREADS=true
-STAN_CPP_OPTIMS=true
-STANC3_VERSION=2.27.0  # change this version to match the downloaded cmdstan version
-```
-1. Edit user environment variable `CMDSTAN` to the folder (e.g. `~/.R/cmdstan-2.27.0`)
-1. Windows only: `mingw32-make install-tbb` (even if `make` is installed)
-1. Follow prompts, including adding the TBB dir to your path (Windows only)
-1. Run `make build` and `make examples/bernoulli/bernoulli` (see install instructions)
-1. Installation tries to download `stanc` (because compilation is a hassle), but sometimes I've had to download manually from https://github.com/stan-dev/stanc3/releases
-
 #### Windows-specific instructions
 
-- After installing conda, use `code/snakemake_environment_windows.yml` to create `snakemake` environment (will error if you already have one named `snakemake`)
-    - `conda env create -f code/snakemake_environment_windows.yml`
+** Note: these instructions worked for an older version of the code, but may no longer work on Windows. Try running in WSL2 instead. **
+
+- After installing mamba, use `code/snakemake_environment_windows.yml` to create `snakemake` environment (will error if you already have one named `snakemake`)
+    - `mamba env create -f code/snakemake_environment_windows.yml`
 - Install cyipopt [manually](https://github.com/matthias-k/cyipopt#from-source-on-windows).
     - Download and extract ipopt
     - Download and extract cyipopt
@@ -254,4 +228,49 @@ Connect to Overleaf by Git. See [details here](https://www.overleaf.com/learn/ho
 git remote add overleaf https://git.overleaf.com/5d6e86df6820580001f6bdfa
 git checkout master
 git pull overleaf master --allow-unrelated-histories
+```
+
+
+### Running R
+
+The code is executed in an R environment managed by Snakemake. To activate the environment for debugging purposes, you can use mamba to figure out the name and activate it.
+
+```sh
+mamba env list
+# pick the relevant entry, e.g. .snakemake/mamba/abcdef012345
+mamba activate <long path listed above>
+unset R_LIBS_USER
+Rscript -e '.libPaths()' # should point to the env specific to this project
+```
+
+### Cmdstan install notes
+
+There are several ways to install cmdstan. The code will manage it for you (via conda-forge and then re-compiled locally). See `code/setup_cmdstan.R`. Here are some notes about what issues I ran into with different approaches.
+
+#### Mamba
+
+cmdstan is available in mamba (via conda-forge). Pinning a particular version can be finicky if pinning other packages (e.g. R)
+Installing via mamba brings pre-compiled binaries, which won't work if some other build flags are used (e.g. -march=native). Not all models are affected - it seems like only ones that use SIMD instructions.
+See https://discourse.mc-stan.org/t/recommended-compiler-flags-makes-rstan-model-crash/25689
+
+Note that a mamba install brings the appropriate build tools, which is nice.
+
+#### Tarball
+
+I was running into issues where Eigen was unhappy with bounds checks for some reason. This seemed to depend on the build flags used, so might be avoidable.
+
+
+### Cleaning up
+
+Many of the files generated during the build can be removed with `snakemake --dryrun --delete-all-output` (remove the `--dryrun` if you're sure).
+Some of the files are not tracked by Snakemake and need to be cleaned up in other ways:
+
+```sh
+snakemake --list-conda-envs
+# See the two environment paths
+mamba env remove -p <first path>
+mamba env remove -p <second path>
+
+# Code tries to clean up, but will leave CSVs if there are errors:
+rm scratch/stan_output/*.csv
 ```

@@ -1,9 +1,1 @@
-CMDSTAN_VERSION = "2.27.0"
-# https://github.com/stan-dev/cmdstan/releases/tag/v2.27.0
-
-# Make flags (these go in make/local, but recording a copy here)
-# O_STANC=3
-# STANCFLAGS+= --O --warn-pedantic
-# STAN_THREADS=true
-# STAN_CPP_OPTIMS=true
-# STANC3_VERSION=2.27.0
+CMDSTAN_VERSION = "2.32.2"

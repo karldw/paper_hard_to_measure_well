@@ -2,6 +2,9 @@
 # This file is licensed under Mozilla Public License 2.0
 # https://github.com/karldw/kdw.junk/blob/faad2210010660a911f50302b05de6a74e149cf3/LICENSE
 
+suppressMessages(
+  here::i_am("code/kdw_package_code.r", uuid="b379d3aa-1ee7-4a8a-aec4-ce91856e6c9d")
+)
 ## From winsorize.r:
 
 #' Winsorize one vector
@@ -93,6 +96,7 @@ save_plot <- function(plot, filename, scale_mult = 1, bg = "transparent", device
       # Borrowed from https://stackoverflow.com/a/41878833
       panel.background      = ggplot2::element_rect(fill = "transparent", color = NA),
       plot.background       = ggplot2::element_rect(fill = "transparent", color = NA),
+      strip.background      = ggplot2::element_rect(fill = "transparent", color = NA),
       legend.background     = ggplot2::element_rect(fill = "transparent", color = NA),
       legend.key            = ggplot2::element_rect(fill = "transparent", color = NA),
       legend.box.background = ggplot2::element_rect(fill = "transparent", color = NA)

@@ -1,19 +1,21 @@
-
 library(ggplot2)
-library(here)
 options(warn=2)
 
+suppressMessages(
+  here::i_am("code/plot_epa_emissions.R", uuid="5ec8cce3-09c8-4620-b5f9-ce7a70280d02")
+)
 source(here::here("code/shared_functions.r"))
 
 EPA_CH4_GWP <- 25 # EPA's GWP number for methane
 OUR_CH4_GWP <- 29.8 # More comprehensive IPCC number
 
 unzip_files <- function(zf) {
+  stopifnot(file.exists(zf))
   td <- tempdir()
   # File for GWP check:
-  gwp <- unzip(zf, file="Chapter Text/Executive Summary/Table ES-1.csv", exdir=td)
+  gwp <- unzip(zf, files="Chapter Text/Executive Summary/Table ES-1.csv", exdir=td)
   # File with emissions:
-  emiss <- unzip(zf, file="Chapter Text/Executive Summary/Table ES-2.csv", exdir=td)
+  emiss <- unzip(zf, files="Chapter Text/Executive Summary/Table ES-2.csv", exdir=td)
   c(gwp = gwp, emiss = emiss)
 }
 
@@ -139,7 +141,7 @@ make_plots <- function(df_list) {
       source_coarse = factor(source_coarse, levels=rev(col_ordering)),
     ) %>%
     ggplot2::ggplot(ggplot2::aes(x=x_axis, y=mmt_co2e, fill=source_coarse)) +
-    ggplot2::geom_col(alpha=0.8) +
+    ggplot2::geom_col(alpha=0.8, color = "black") + # border color
     ggplot2::geom_text(ggplot2::aes(label=source_coarse), position="stack", vjust = 1.6) +
     ggplot2::scale_fill_brewer(palette="Dark2", guide="none") +
     ggplot2::theme_bw() +
@@ -150,35 +152,6 @@ make_plots <- function(df_list) {
       legend.background = ggplot2::element_rect(fill = "transparent", color = NA),
       legend.box.background = ggplot2::element_rect(fill = "transparent", color = NA)
     )
-  #
-  #
-  # emiss_2015 <- ch4_2015 %>%
-  #   dplyr::filter(source_coarse == "Oil and gas") %>%
-  #   dplyr::mutate(
-  #     source_coarse = "Oil and gas\n(corrected)",
-  #     mmt_co2e = mmt_co2e + ((13 - 8.1) * OUR_CH4_GWP),
-  #   ) %>%
-  #   dplyr::bind_rows(ch4_2015) %>%
-  #   dplyr::bind_rows(non_ch4_2015) %>%
-  #   dplyr::mutate(source_coarse = factor(source_coarse,
-  #     levels = c("Non-CH4 total", "Total CH4", "Oil and gas",
-  #     "Oil and gas\n(corrected)", "Other fossil", "Agriculture", "Waste")
-  #   ))
-  #   stopifnot(noNAs(emiss_2015$source_coarse))
-  #
-  # labels <- emiss_2015  %>%
-  #   dplyr::filter(source_coarse == "Oil and gas\n(corrected)") %>%
-  #   dplyr::mutate(label_text = round(mmt_co2e))
-
-
-  #
-  # plt_ch4_2015 <- emiss_2015 %>%
-  #   dplyr::filter(source_coarse != "Non-CH4 total") %>%
-  #   ggplot(aes(x=source_coarse, y=mmt_co2e)) +
-  #   geom_col() +
-  #   geom_text(data=labels, aes(label=label_text, y=mmt_co2e * 1.1)) +
-  #   theme_bw() +
-  #   labs(x="", y="MMT CO2e")
 
   plt_ghg_2015 <- dplyr::bind_rows(ch4_2015, non_ch4_2015) %>%
     dplyr::mutate(source_coarse = factor(source_coarse, levels=col_ordering)) %>%
@@ -187,8 +160,6 @@ make_plots <- function(df_list) {
     ggplot2::theme_bw() +
     ggplot2::labs(x="", y="MMT CO2e")
 
-
-  # save_plot(plt_ch4_2015, here::here("graphics/epa_emiss_2015_ch4.pdf"), reproducible=TRUE)
   tf1 <- tempfile(fileext=".pdf")
   ggplot2::ggsave(
     filename=tf1,

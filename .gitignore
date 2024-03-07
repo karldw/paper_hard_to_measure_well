@@ -20,6 +20,7 @@ comment.cut
 /dask-worker-space/*
 */dask-worker-space/*
 
+.vscode
 
 mydask.png
 

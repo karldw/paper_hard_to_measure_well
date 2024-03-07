@@ -8,7 +8,8 @@ functions {
     for (i in 1:N) {
       is_nonzero[i] = x[i] != 0;
     }
-    array[sum(is_nonzero)] int result;
+    int n_nonzero = sum(is_nonzero);
+    array[n_nonzero] int result = zeros_int_array(n_nonzero);
     int j = 0;
     for (i in 1:N) {
       if (is_nonzero[i]) {
@@ -35,7 +36,7 @@ transformed data {
   array[N] int<lower=1, upper=N> boot_idx;
   simplex[N] uniform = rep_vector(1.0 / N, N);
   for (i in 1:N) {
-    // boot_idx is either 1:N if bootstrap == 0
+    // boot_idx is either 1:N if bootstrap == 0, or a random draw if bootstrap == 1
     boot_idx[i] = bootstrap ? categorical_rng(uniform) : i;
   }
   // Can't write to Y, so make a new Y_reindex
@@ -70,24 +71,13 @@ transformed data {
   // Note: might want y_se for the log-scale, but need to think more.
   vector[N_obs] y_se = noise[boot_idx][obs_idx];
 
-  // Number of cols in the QR reparameterization
-  // (could add more than 1 if we wanted additional covariates as fn of b_y)
-  int K_qr = Kc + 1;
-
   vector[N] log_price = log(price);
-  real shift_amount_times_price_min_times_T = shift_amount * min(price) * time_period_hr;
-
-  // Additional params, sometimes useful in the generated block:
-  // empty arrays and vec so we can match function signatures exactly.
-  array[0] real empty_real;
-  array[0] int empty_int;
-  vector[0] empty_vec;
+  vector[N] price_times_T = price * time_period_hr;
 
   // Note: hard-coding detect_threshold for now. Needs to match detect_threshold
   // in the outcomes_analysis.py program.
   real<lower=0.01> detect_threshold_shifted = 100 - shift_amount;
 }
-
 
 parameters {
   vector[Kc] b_y;  // population-level effects for observed
@@ -95,7 +85,6 @@ parameters {
   real<lower=0> sigma_y;  // residual SD
   vector[Kc] b_obs;  // population-level effects for hurdle
   real temp_obs_inter;  // temporary intercept for centered predictors
-  // real<lower=-1, upper=0> temp_inv_alpha; // cost param (1 / alpha)
 
   real temp_alpha_inter;
   vector[Kc] b_alpha;
@@ -103,41 +92,56 @@ parameters {
 transformed parameters {
 }
 
-generated quantities {
-  // Note: using the lognormal_rng here is a higher-variance choice than
-  // using the expected value. Shouldn't matter for point values, but might
-  // matter for CI calc.
+model {
+  // Priors:
+  // Scale the prior std dev on leak size params by `time_period_hr` (different
+  // `time_period_hr` values give widely ranging `leak_private_value`)
+  b_y ~ student_t(3, 0, 3 * time_period_hr);
+  temp_y_inter ~ student_t(3, 0, 3 * time_period_hr);
+  sigma_y ~  student_t(3, 0, 3 * time_period_hr);
+  // These priors for the logit were chosen so the predicted probability was
+  // roughly flat (even priors as wide as normal(0, 0.75) end up putting a
+  // large fraction of the probability quite close to 0 or 1)
+  // Further discussion: https://mikedecr.github.io/post/nonflat-implications/
+  b_obs ~ normal(0, 0.5);
+  temp_obs_inter ~ normal(0, 0.5);
+  temp_alpha_inter ~ normal(0, 0.75);
+  b_alpha ~ normal(0, 0.75);
 
-  vector[N] leak_size_expect;
-  vector[N] leak_size_draw;
-  vector[N] prob_leak;
-  vector[N] prob_size_above_threshold;
+  if (!prior_only) {
+    // linear predictor for outcome:
+    vector[N_obs] mu_y = temp_y_inter + Xc_obs * b_y;
 
-  // These are the A_i and alpha in the stan model, but adding more descriptive
-  // names here for saving.
-  vector[N] cost_param_A = inv_logit(temp_obs_inter + Xc * b_obs) * shift_amount_times_price_min_times_T;
-  vector[N] cost_param_alpha;
+    // Calculate Duan's smearing (robust to non-normal log(y) residuals, but
+    // still assumes conditional homoskedasticity)
+    // smear_y_log replaces (sigma_y ^ 2 / 2) in the expectation of e
+    // y_shift_log and mu_y are the values and mean on the log scale, so
+    // (y_shift_log - mu_y) are the residuals on the log scale.
+    // We want the mean of the exp(log-scale residual) to as part of our expression
+    // for the expectation of e * p.
+    real smear_y = mean(exp(y_shift_log - mu_y));
+    // Calculate the expectation of e * p * T (private value of a leak when
+    // leaking), re-adding the shift_amount
+    vector[N] leak_size_expect = exp(temp_y_inter + Xc * b_y) * smear_y + shift_amount;
+    vector[N] leak_private_value = price_times_T .* leak_size_expect;
+    // We need temp_obs_inter + Xc * b_obs to be in (0, e * p) for every i, which
+    // is infeasible for almost all b_obs. But we can do an ad-hoc logit scale to
+    // force it to be true, then multiply by shift_amount * min(price)
+    // This approach forces A_i to be in a specific range, which is a little
+    // unusual, but seems fine.
+    // Doesn't work to use min(e * p) here because of identifiability challenges
+    vector[N] A_i = inv_logit(temp_obs_inter + Xc * b_obs) .* leak_private_value;
 
-  {
-    // Inner block here to avoid printing temporary vars.
-    // Most of this math is the same as in 02_twopart_lognormal_alpha_model.stan
-    // See that file for details.
-    vector[N_obs] mu_y_obs = temp_y_inter + Xc_obs * b_y;
-    vector[N] mu_y_all = temp_y_inter + Xc * b_y;
-    leak_size_draw = to_vector(lognormal_rng(mu_y_all, sigma_y)) + shift_amount;
-    real smear_y = mean(exp(y_shift_log - mu_y_obs));
-    // Calculate the expectation of e * p, re-adding the shift_amount
-    leak_size_expect = exp(mu_y_all) * smear_y + shift_amount;
     vector[N] inv_alpha = -inv_logit(temp_alpha_inter + Xc * b_alpha);
-    cost_param_alpha = inv(inv_alpha);
-    prob_leak = (time_period_hr * leak_size_expect .* price ./ cost_param_A) ^ inv_alpha;
+    vector[N] prob_leak = (leak_private_value ./ A_i) .^ inv_alpha;
 
-    // Note: `detect_threshold_shifted` is a single real number. For different
-    // detect_threshold_shifted values, create different variables.
-    for (i in 1:N) {
-      prob_size_above_threshold[i] = 1 - lognormal_cdf(
-        detect_threshold_shifted | mu_y_all[i], sigma_y
-      );
-    }
+    y_shift ~ lognormal(mu_y, sigma_y);
+    obs_dummy ~ bernoulli(prob_leak);
   }
+}
+generated quantities {
+  // Undo the centering from before to calculate the intercepts intercept
+  real b_y_intercept = temp_y_inter - dot_product(means_X, b_y);
+  real b_obs_intercept = temp_obs_inter - dot_product(means_X, b_obs);
+  real b_alpha_intercept = temp_alpha_inter - dot_product(means_X, b_alpha);
 }

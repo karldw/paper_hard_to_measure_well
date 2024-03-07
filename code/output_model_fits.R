@@ -1,47 +1,38 @@
 
+suppressMessages(
+  here::i_am("code/output_model_fits.R", uuid="4f448fbf-f927-486b-957b-7aa5bcb77946")
+)
 source(here::here("code/shared_functions.r"))
-source(here::here("code/distribution_model_data_prep.r"))
+source(here::here("code/model_data_prep.r"))
 source(here::here("code/stan_helper_functions.r"))
 
 set.seed(8675309)
 # LEAK_SIZE_DEF defines what leak size we're talking about for a "major leak".
-# This needs to match the shift_amount in distribution_model_data_prep
-LEAK_SIZE_DEF <- 5
+# This needs to match the shift_amount in model_data_prep
+LEAK_SIZE_DEF <- read_constants()[["LEAK_SIZE_DEF"]]
 
 if (!exists("snakemake")) {
   message("Using placeholder snakemake")
   TEX_FRAGMENTS <- fs::fs_path(here::here("output/tex_fragments"))
-  STAN_FITS <- fs::fs_path(here::here("data/generated/stan_fits"))
+  STAN_FITS <- fs::fs_path(here::here("data/generated/stan_fits/main_spec"))
   snakemake <- SnakemakePlaceholder(
     input=list(
       # NOTE: the order here (and in the snakemake file) is the order of the
       # columns in the table.
       distribution_fits = c(
-        STAN_FITS / "01_twopart_lognormal-bootstrap/model_fit.rds",
-        STAN_FITS / "03_twopart_lognormal_meas_err-bootstrap/model_fit.rds",
-        # STAN_FITS / "05_twopart_normal_qr/model_fit.rds",
-        STAN_FITS / "02_twopart_lognormal_alpha-bootstrap-period_8760_hours/model_fit.rds",
         STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours/model_fit.rds"
       ),
-      measurements = here::here("data/generated/methane_measures/matched_wells_all.rds"),
+      measurements = here::here("data/generated/methane_measures/matched_wells_all.parquet"),
       stan_data_json = c(
-        STAN_FITS / "01_twopart_lognormal-bootstrap/stan_data.json",
-        STAN_FITS / "03_twopart_lognormal_meas_err-bootstrap/stan_data.json",
-        # STAN_FITS / "05_twopart_normal_qr/stan_data.json",
-        STAN_FITS / "02_twopart_lognormal_alpha-bootstrap/stan_data.json",
-        STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap/stan_data.json"
+        STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours/stan_data.json"
       )
     ),
     output = list(
       model_prob_leak_plot = "graphics/model_prob_leak_plot.pdf",
       model_cost_vs_q_plot = "graphics/model_cost_vs_q_plot.pdf",
       model_cost_vs_q_dwl_plot = "graphics/model_cost_vs_q_dwl_plot.pdf",
-      model_coef_obs_leak  = TEX_FRAGMENTS / "model_parameters_obs_leak.tex",
-      model_coef_leak_size = TEX_FRAGMENTS / "model_parameters_leak_size.tex",
-      model_coef_footer_obs_leak  = TEX_FRAGMENTS / "model_parameters_footer_obs_leak.tex",
-      model_coef_footer_leak_size = TEX_FRAGMENTS / "model_parameters_footer_leak_size.tex",
-      # model_cost_alpha_by_leak_size_bin_plot = "graphics/model_cost_alpha_by_leak_size_bin_plot.pdf",
-      # model_leak_size_by_leak_size_bin_plot  = "graphics/model_leak_size_by_leak_size_bin_plot.pdf"
+      model_coef  = TEX_FRAGMENTS / "model_parameters.tex",
+      model_coef_footer  = TEX_FRAGMENTS / "model_parameters_footer.tex",
       model_prob_size_above_threshold_histogram = "graphics/model_prob_size_above_threshold_histogram.pdf",
       model_cost_alpha_histogram = "graphics/model_cost_alpha_histogram.pdf"
     ),
@@ -94,7 +85,7 @@ plot_model_prob_leak <- function(prob_leak_file, outfile) {
   save_plot(plt, outfile, reproducible=TRUE)
 }
 
-read_dist_fit <- function(distribution_fit, depvar = c("leak size", "obs leak")) {
+read_dist_fit <- function(distribution_fit, depvar = c("leak size", "obs leak", "alpha")) {
   model_name <- filename_to_model_name(distribution_fit)
   stopifnot(model_name %in% MODEL_NAMES$all)
   depvar <- match.arg(depvar)
@@ -106,9 +97,8 @@ read_dist_fit <- function(distribution_fit, depvar = c("leak size", "obs leak"))
     varnames %<>% c("sigma")
   } else if (depvar == "obs leak") {
     stan_coefs <- c("b_obs_intercept", "b_obs")
-    if (model_name == "02_twopart_lognormal_alpha") {
-      return(NULL)
-    }
+  } else if (depvar == "alpha") {
+    stan_coefs <- c("b_alpha_intercept", "b_alpha")
   } else {
     stop("programming error")
   }
@@ -147,15 +137,18 @@ clean_varnames <- function(x) {
 }
 
 get_shared_varnames <- function(model_name,
-    measurements_file = snakemake@input[["measurements"]]
+    measurements_file = snakemake@input[["measurements"]],
+    robustness_spec = snakemake@wildcards[["robustness_spec"]] %||% "main_spec/"
   ) {
   stopifnot(length(measurements_file) == 1)
   # Load the data the same way it's loaded for the model fitting.
   # These are the names R creates with model.matrix, so they're messy for factors
   # Could memoize this function, but it's already fast.
   coef_names <- prep_measurement_data(measurements_file) %>%
-    purrr::chuck("aviris_all") %>%
-    prep_custom_model_data(model_name = model_name) %>% #
+    prep_custom_model_data(
+      model_name = model_name,
+      robustness_spec_str = robustness_spec
+    ) %>%
     purrr::chuck("X") %>%
     colnames()
   coef_names
@@ -163,16 +156,7 @@ get_shared_varnames <- function(model_name,
 
 summarize_coefs_once <- function(draws, varnames) {
   stopifnot(posterior::is_draws(draws), is.character(varnames))
-  # col_order <- order(names(df))
-  # out <- tidyr::pivot_longer(df, dplyr::everything(), names_to="term", values_to="est") %>%
-  #   dplyr::group_by(term) %>%
-  #   dplyr::summarize(
-  #     estimate = signif(mean(est), 3),
-  #     conf_low = signif(quantile_(est, 0.025), 2),
-  #     conf_high = signif(quantile_(est, 0.975), 2),
-  #     .groups="drop"
-  #   ) %>%
-  #   dplyr::mutate(term = clean_varnames(term))
+
   est = function(x) signif(mean(x), 3)
   conf95_low  = function(x) signif(quantile(x, 0.025, names=FALSE, type=8), 2)
   conf95_high = function(x) signif(quantile(x, 0.975, names=FALSE, type=8), 2)
@@ -185,8 +169,7 @@ summarize_coefs_once <- function(draws, varnames) {
     # Check names match expectations. (dplyr already checks lengths)
     grepl("intercept", out$variable[1], ignore.case=TRUE),
     grepl("intercept", varnames[1], ignore.case=TRUE),
-    grepl("[1]", out$variable[2], fixed=TRUE),
-    grepl("mcfd", varnames[2], fixed=TRUE)
+    grepl("[1]", out$variable[2], fixed=TRUE)
   )
   # Re-sort rows to match the original column order
   # stopifnot(nrow(out) == length(col_order))
@@ -242,8 +225,15 @@ calc_r2 <- function(model_dir, outcome_name) {
 get_N <- function(model_dir) {
   stopifnot(length(model_dir) == 1)
   stan_data_json <- file.path(model_dir, "stan_data.json")
-  N <- jsonlite::read_json(stan_data_json, simplifyVector=FALSE)$N
-  N
+  stan_data <- jsonlite::read_json(stan_data_json, simplifyVector=FALSE)
+  # Note: this is encoding a bit of the model structure
+  n_total <- stan_data$N
+  if (anyNA(stan_data$Y)) {
+    stop("Can't count non-zero when NAs are present")
+  }
+  stopifnot(length(stan_data$Y) == n_total)
+  n_nonzero <- sum(stan_data$Y != 0)
+  c(n_nonzero = n_nonzero, n_total = n_total)
 }
 
 calc_outcome_mean <- function(model_dir, depvar) {
@@ -261,62 +251,95 @@ calc_outcome_mean <- function(model_dir, depvar) {
   mean(y)
 }
 
-write_coefs_table <- function(snakemake, depvar) {
+write_coefs_table <- function(snakemake) {
   # fit_info is a list of lists. Outer list has one element per file in
   # distribution_fits. For each of those, inner list has elements `draws`,
   # `varnames`, and `model_name`
-  if (depvar == "leak size") {
-    outfile <- snakemake@output$model_coef_leak_size %||% stop("missing outfile")
-  } else if (depvar == "obs leak") {
-    outfile <- snakemake@output$model_coef_obs_leak  %||% stop("missing outfile")
-  } else {
-    stop("bad depvar")
-  }
+  # Note: this structure is a little weird for the current setup, where there
+  # is only one file in `distribution_fits`, but it still works.
+  outfile <- snakemake@output$model_coef %||% stop("missing outfile")
   fit_files <- snakemake@input$distribution_fits %||% stop("missing fit files")
-  fit_info <- purrr::map(fit_files, read_dist_fit, depvar=depvar) %>%
+  if (length(fit_files) > 1) {
+    warning("The code in write_coefs_table and write_coef_footer might work with multiple model files, but there could be bugs.")
+  }
+  fit_info_size <- purrr::map(fit_files, read_dist_fit, depvar="leak size") %>%
     purrr::compact()
-  model_names <- extract_from_each(fit_info, "model_name") %>% as.character()
-  varnames_lst <- extract_from_each(fit_info, "varnames")
-  summary_lst <- extract_from_each(fit_info, "draws") %>%
-    purrr::map2(varnames_lst, summarize_coefs_once)
+  fit_info_obs <- purrr::map(fit_files, read_dist_fit, depvar="obs leak") %>%
+    purrr::compact()
+  fit_info_alpha <- purrr::map(fit_files, read_dist_fit, depvar="alpha") %>%
+    purrr::compact()
+  model_names <- extract_from_each(fit_info_size, "model_name") %>% as.character()
+  stopifnot(
+    model_names == as.character(extract_from_each(fit_info_obs, "model_name")),
+    model_names == as.character(extract_from_each(fit_info_alpha, "model_name"))
+  )
+
+  summary_lst_size <- purrr::map2(
+    extract_from_each(fit_info_size, "draws"),
+    extract_from_each(fit_info_size, "varnames"),
+    summarize_coefs_once
+  )
+  summary_lst_obs <- purrr::map2(
+    extract_from_each(fit_info_obs, "draws"),
+    extract_from_each(fit_info_obs, "varnames"),
+    summarize_coefs_once
+  )
+  summary_lst_alpha <- purrr::map2(
+    extract_from_each(fit_info_alpha, "draws"),
+    extract_from_each(fit_info_alpha, "varnames"),
+    summarize_coefs_once
+  )
+  # Note that the order here (size, obs, alpha) should match write_coef_footer
+  summary_lst <- c(summary_lst_size, summary_lst_obs, summary_lst_alpha)
+  # TODO: change this to
   tab <- summary_lst %>%
     purrr::map(format_estimate_above_interval, align="@") %>%
     merge_estimates_df() %>%
-    make_table_fragment(escaped=FALSE, add_comments = model_names) %>%
-    writeLines(outfile)
-  write_coef_footer(snakemake, depvar)
+    make_table_fragment(escaped=FALSE, add_comments=model_names)
+  writeLines(tab, outfile)
+  write_coef_footer(snakemake)
   invisible(summary_lst)
 }
 
-write_coef_footer <- function(snakemake, depvar) {
+.make_table_line <- function(x) {
+  paste(paste(x, collapse = " & "), "\\\\")
+}
+
+write_coef_footer <- function(snakemake) {
+  # TODO: change this to write the combined footer for leak_size_expect and prob_leak
   model_dirs <- dirname(snakemake@input$stan_data_json)
   model_names <- file.path(model_dirs, "model_fit.rds") %>% filename_to_model_name()
-  if (depvar == "leak size") {
-    outfile <- snakemake@output$model_coef_footer_leak_size
-    outcome_name <- "leak_size_expect"
-  } else if (depvar == "obs leak") {
-    outfile <- snakemake@output$model_coef_footer_obs_leak
-    outcome_name <- "prob_leak"
-    # No b_obs coef for this model, so no footer for this model:
-    model_dirs <- model_dirs[model_names != "02_twopart_lognormal_alpha"]
-  } else {
-    stop("bad depvar")
-  }
-  .make_table_line <- function(x) {
-    paste(paste(x, collapse = " & "), "\\\\")
-  }
-  r2 <- purrr::map_dbl(
-    model_dirs,
-    calc_r2,
-    outcome_name=outcome_name
-  ) %>% signif(2)
-  n <- purrr::map_int(model_dirs, get_N)
-  depvar_mean <- purrr::map_dbl(
-    model_dirs,
-    calc_outcome_mean,
-    depvar=depvar
-  ) %>% signif(3)
-  waic <- rep_len("-", length(model_dirs))
+  outfile <- snakemake@output$model_coef_footer
+  # No b_obs coef for this model, so no footer for this model:
+  model_dirs <- model_dirs[model_names != "02_twopart_lognormal_alpha"]
+
+  r2_leak_size <- purrr::map_dbl(model_dirs, calc_r2, outcome_name = "leak_size_expect") %>% signif(2)
+  r2_obs_leak <- purrr::map_dbl(model_dirs, calc_r2, outcome_name = "prob_leak") %>% signif(2)
+  r2_alpha <- ""
+  # Note that the order here (size, obs, alpha) should match write_coef_footer
+  r2 <- c(r2_leak_size, r2_obs_leak, r2_alpha)
+  # for each element of model_dirs, get_N returns 2 values, one for leak size and one for obs leak
+  n <- purrr::map(model_dirs, get_N) %>% purrr::flatten_int() %>% c("")
+
+  mean_leak_size <- purrr::map_dbl(
+      model_dirs,
+      calc_outcome_mean,
+      depvar="leak size"
+    ) %>%
+    signif(3)
+   mean_obs_leak <- purrr::map_dbl(
+      model_dirs,
+      calc_outcome_mean,
+      depvar = "obs leak"
+    ) %>%
+     signif(3)
+  # waic <- rep_len("-", length(model_dirs))
+  mean_alpha <- ""
+  depvar_mean <- c(mean_leak_size, mean_obs_leak, mean_alpha)
+  stopifnot(
+    length(n) == length(r2),
+    length(n) == length(depvar_mean)
+  )
   text_lines <- c(
     .make_table_line(c("$N$", n)),
     .make_table_line(c("$R^2$", r2)),
@@ -370,8 +393,6 @@ plot_model_cost_param <- function(model_dir, outfile_cost, outfile_dwl) {
   )
   scm_per_kg <- 2 # ($58/ton CO2e; kinda low!_
   scm_per_mcf <- scm_per_kg * ch4_kg_per_mcf * gas_frac_ch4
-
-
 
   # For 02_twopart_lognormal_alpha, the coef is constant, so it doesn't matter
   # that we take the median vs whatever. For 08_twopart_lognormal_heterog_alpha,
@@ -525,6 +546,8 @@ load_data_by_leak_size_bin <- function(model_dir) {
 }
 
 plot_model_by_leak_size_bin <- function(model_dir, outfile_alpha, outfile_leak) {
+  # Note: this function is old and no longer used. If you re-enable it, need to re-add the ggridges=0.5.3 dependency.
+
   # Code to generate:
   # "graphics/model_cost_alpha_by_leak_size_bin_plot.pdf",
   # "graphics/model_leak_size_by_leak_size_bin_plot.pdf",
@@ -568,7 +591,7 @@ plot_model_by_leak_size_bin <- function(model_dir, outfile_alpha, outfile_leak) 
 }
 
 
-plot_alpha_histogram <- function(model_dir, outfile_alpha) {
+plot_alpha_histogram <- function(model_dir, outfile_alpha, with_titles=FALSE) {
   stopifnot(
     length(model_dir) == 1,
     length(outfile_alpha) == 1
@@ -581,16 +604,21 @@ plot_alpha_histogram <- function(model_dir, outfile_alpha) {
   plt_alpha <- tibble::tibble(alpha = cost_param_alpha_mean_by_well) %>%
     ggplot2::ggplot(ggplot2::aes(
       x = -winsorize(alpha, c(0.01, 0)),
-      y = ..density..
+      y = ggplot2::after_stat(density)
     )) +
     ggplot2::geom_histogram(bins=100) +
     ggplot2::theme_bw() +
     ggplot2::labs(
-      title = "Abatement elasticity",
-      subtitle = "Mean across draws for each well",
       x = "Marginal cost elasticity (−α)",
       y = "Density"
     )
+  if (with_titles) {
+    plt_alpha <- plt_alpha +
+      ggplot2::labs(
+        title = "Abatement elasticity",
+        subtitle = "Mean across draws for each well",
+      )
+  }
   save_plot(plt_alpha, outfile_alpha, reproducible=TRUE)
 }
 
@@ -609,7 +637,7 @@ plot_prob_size_above_threshold_histogram <- function(model_dir, outfile) {
   plt <- tibble::tibble(prob_size_above_threshold = mean_by_well) %>%
     ggplot2::ggplot(ggplot2::aes(
       x = prob_size_above_threshold,
-      y = ..density..
+      y = ggplot2::after_stat(density)
     )) +
     ggplot2::geom_histogram(bins=100) +
     ggplot2::theme_bw() +
@@ -623,8 +651,7 @@ plot_prob_size_above_threshold_histogram <- function(model_dir, outfile) {
 }
 
 
-model_to_plot <- "08_twopart_lognormal_heterog_alpha"
-model_dir_to_plot <- snakemake@input$distribution_fits[grepl(model_to_plot, snakemake@input$distribution_fits)] %>%
+model_dir_to_plot <- snakemake@input$distribution_fits %>%
   dirname() %>%
   fs::fs_path()
 stopifnot(length(model_dir_to_plot) == 1)
@@ -634,6 +661,7 @@ stopifnot(length(model_dir_to_plot) == 1)
 #   snakemake@output$model_cost_alpha_by_leak_size_bin_plot,
 #   snakemake@output$model_leak_size_by_leak_size_bin_plot
 # )
+
 
 plot_prob_size_above_threshold_histogram(
   model_dir_to_plot,
@@ -656,5 +684,4 @@ plot_model_prob_leak(
   outfile = snakemake@output$model_prob_leak_plot
 )
 
-write_coefs_table(snakemake, "obs leak")
-write_coefs_table(snakemake, "leak size")
+write_coefs_table(snakemake)

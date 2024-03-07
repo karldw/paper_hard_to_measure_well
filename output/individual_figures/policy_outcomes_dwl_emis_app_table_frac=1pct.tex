@@ -1,0 +1,69 @@
+
+\begin{longtable}{l d d}
+% \begin{threeparttable}
+ \caption{Reduction in \gls{DWL} and Emissions}
+ \label{tab:dwl-emis-1pct}\\
+\toprule
+& \textcol{\gls{DWL} reduction(\%)}  &
+  \textcol{Emiss. reduction (\%)} \\
+
+\midrule
+\multicolumn{3}{l}{%
+\(\tau = \) \textdollar 5 per ton \ce{CO2e}, \(T = \text{1~week}\)
+}\\
+\midrule
+\input{../tex_fragments/outcome_dwl_emis_frac=1pct_tauT=low-1week.tex}\\
+
+\midrule
+\multicolumn{3}{l}{
+\(\tau = \) \textdollar 5 per ton \ce{CO2e}, \(T = \text{3~months}\)
+}\\
+\midrule
+\input{../tex_fragments/outcome_dwl_emis_frac=1pct_tauT=low-3month.tex}\\
+
+\midrule
+\multicolumn{3}{l}{%
+\(\tau = \delta\), \(T = \text{1~week}\)
+}\\
+\midrule
+\input{../tex_fragments/outcome_dwl_emis_frac=1pct_tauT=med-1week.tex}\\
+
+\midrule
+\multicolumn{3}{l}{%
+\(\tau = 2\delta\), \(T = \text{1~week}\)
+}\\
+\midrule
+\input{../tex_fragments/outcome_dwl_emis_frac=1pct_tauT=high-1week.tex}\\
+
+\midrule
+\multicolumn{3}{l}{%
+\(\tau = \delta\), \(T = \text{3~months}\)
+}\\
+\midrule
+\input{../tex_fragments/outcome_dwl_emis_frac=1pct_tauT=med-3month.tex}\\
+
+\midrule
+\multicolumn{3}{l}{%
+\(\tau = 2\delta\), \(T = \text{3~months}\)
+}\\
+\midrule
+\input{../tex_fragments/outcome_dwl_emis_frac=1pct_tauT=high-3month.tex}\\
+
+\bottomrule
+\end{longtable}
+% \begin{tablenotes}
+% \item
+% \textsc{Note:}
+% % Values are the expected fee per kg emitted, as a percentage of the social cost of emissions (100 \(T \tau r_i / \delta H\)).
+% % Panels A, B, and C set \(T = \) 1 week and consider different values of \(\tau\).
+% % Each row considers different audit rules to optimally allocate \(r_i\) according to the fixed audit budget, which is set to 1\% of all well pads.
+% % Columns provide distributional statistics across well pads.
+% % \(\delta = \) \$2 per kg methane.
+% % ``Target leaks, low threshold'' presents a point of comparison for the more realistic high threshold case.
+
+
+% % Wells in this table are the sample of wells included in the \gls{AVIRIS-NG} sample (table~\ref{tab:well-summary-stats} panel~\textsc{a}).
+% % Point estimates and square brackets indicate the mean and 95\% \gls{CI}.
+% % (See text for \gls{CI} details.)
+% \end{tablenotes}
+% \end{threeparttable}
