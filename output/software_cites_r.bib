@@ -1,23 +1,30 @@
-@Manual{r_core,
+% Note: this file is a manually edited version of software_cites_r_raw.bib, which is automatically generated.
+% To add a new package, edit code/generate_code_cites.R, and copy any changes you want from the output software_cites_r_raw.bib to here.
+% Manual edits: replace ' with `, change some non-ascii to latex equivalent, add "code" keyword.
+
+@Manual{base,
   title = {R: A Language and Environment for Statistical Computing},
   author = {{R Core Team}},
   organization = {R Foundation for Statistical Computing},
   address = {Vienna, Austria},
   year = {2022},
   url = {https://www.R-project.org/},
+  keywords = {code},
 }
 
 @Manual{arrow,
   title = {arrow: Integration to `Apache' `Arrow'},
-  author = {Neal Richardson and Ian Cook and Nic Crane and Jonathan Keane and Romain François and Jeroen Ooms and {Apache Arrow}},
-  note = {https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/},
+  author = {Neal Richardson and Ian Cook and Nic Crane and Jonathan Keane and Romain Fran\c{c}ois and Jeroen Ooms and {Apache Arrow}},
+  url = {https://arrow.apache.org/docs/r/},
+  keywords = {code},
 }
 
 @Manual{cmdstanr,
   title = {cmdstanr: R Interface to `CmdStan'},
-  author = {Jonah Gabry and Rok Češnovar},
+  author = {Jonah Gabry and Rok \v{C}e\v{s}novar},
   year = {2022},
-  note = {https://mc-stan.org/cmdstanr/, https://discourse.mc-stan.org},
+  url = {https://mc-stan.org/cmdstanr/},
+  keywords = {code},
 }
 
 @Manual{curl,
@@ -26,6 +33,7 @@
   year = {2021},
   note = {4.3.2},
   url = {https://CRAN.R-project.org/package=curl},
+  keywords = {code},
 }
 
 @Manual{data.table,
@@ -34,14 +42,16 @@
   year = {2021},
   note = {1.14.0},
   url = {https://CRAN.R-project.org/package=data.table},
+  keywords = {code},
 }
 
 @Manual{dplyr,
   title = {dplyr: A Grammar of Data Manipulation},
-  author = {Hadley Wickham and Romain François and Lionel Henry and Kirill Müller},
+  author = {Hadley Wickham and Romain Fran\c{c}ois and Lionel Henry and Kirill M\"{u}ller},
   year = {2021},
   note = {1.0.7},
   url = {https://CRAN.R-project.org/package=dplyr},
+  keywords = {code},
 }
 
 @Manual{fs,
@@ -50,6 +60,7 @@
   year = {2020},
   note = {1.5.0},
   url = {https://CRAN.R-project.org/package=fs},
+  keywords = {code},
 }
 
 @Manual{furrr,
@@ -58,6 +69,7 @@
   year = {2021},
   note = {0.2.3},
   url = {https://CRAN.R-project.org/package=furrr},
+  keywords = {code},
 }
 
 @Misc{future,
@@ -69,6 +81,7 @@
   archiveprefix = {arXiv},
   primaryclass = {cs.DC},
   url = {https://arxiv.org/abs/2008.00553},
+  keywords = {code},
 }
 
 @Book{ggplot2,
@@ -78,14 +91,16 @@
   year = {2016},
   isbn = {978-3-319-24277-4},
   url = {https://ggplot2.tidyverse.org},
+  keywords = {code},
 }
 
-@Manual{ggpointdensity,
-  title = {ggpointdensity: A Cross Between a 2D Density Plot and a Scatter Plot},
-  author = {Lukas P. M. Kremer},
-  year = {2019},
-  note = {0.1.0},
-  url = {https://CRAN.R-project.org/package=ggpointdensity},
+@Manual{ggpattern,
+  title = {ggpattern: `ggplot2' Pattern Geoms},
+  author = {Mike FC and Trevor L Davis and {ggplot2 authors}},
+  year = {2022},
+  note = {1.0.0},
+  url = {https://CRAN.R-project.org/package=ggpattern},
+  keywords = {code},
 }
 
 @Manual{glue,
@@ -102,14 +117,16 @@
   year = {2021},
   note = {0.3.0},
   url = {https://CRAN.R-project.org/package=gt},
+  keywords = {code},
 }
 
 @Manual{here,
   title = {here: A Simpler Way to Find Your Files},
-  author = {Kirill Müller},
+  author = {Kirill M\"{u}ller},
   year = {2020},
   note = {1.0.1},
   url = {https://CRAN.R-project.org/package=here},
+  keywords = {code},
 }
 
 @Article{igraph,
@@ -120,6 +137,7 @@
   pages = {1695},
   year = {2006},
   url = {https://igraph.org},
+  keywords = {code},
 }
 
 @Article{jsonlite,
@@ -128,6 +146,7 @@
   journal = {arXiv:1403.2805 [stat.CO]},
   year = {2014},
   url = {https://arxiv.org/abs/1403.2805},
+  keywords = {code},
 }
 
 @Article{lubridate,
@@ -139,6 +158,7 @@
   number = {3},
   pages = {1--25},
   url = {https://www.jstatsoft.org/v40/i03/},
+  keywords = {code},
 }
 
 @Manual{magrittr,
@@ -147,6 +167,7 @@
   year = {2020},
   note = {2.0.1},
   url = {https://CRAN.R-project.org/package=magrittr},
+  keywords = {code},
 }
 
 @Manual{matrixStats,
@@ -156,6 +177,7 @@ Vectors)},
   year = {2021},
   note = {0.60.0},
   url = {https://CRAN.R-project.org/package=matrixStats},
+  keywords = {code},
 }
 
 @Manual{nngeo,
@@ -164,14 +186,16 @@ Vectors)},
   year = {2021},
   note = {0.4.3},
   url = {https://CRAN.R-project.org/package=nngeo},
+  keywords = {code},
 }
 
 @Misc{posterior,
   title = {posterior: Tools for Working with Posterior Distributions},
-  author = {Paul-Christian Bürkner and Jonah Gabry and Matthew Kay and Aki Vehtari},
+  author = {Paul-Christian B\"{u}rkner and Jonah Gabry and Matthew Kay and Aki Vehtari},
   year = {2023},
   note = {1.4.1},
   url = {https://mc-stan.org/posterior/},
+  keywords = {code},
 }
 
 @Manual{powerjoin,
@@ -180,14 +204,16 @@ Vectors)},
   year = {2022},
   note = {0.1.0},
   url = {https://CRAN.R-project.org/package=powerjoin},
+  keywords = {code},
 }
 
 @Manual{processx,
   title = {processx: Execute and Control System Processes},
-  author = {Gábor Csárdi and Winston Chang},
+  author = {G\'{a}bor Cs\'{a}rdi and Winston Chang},
   year = {2021},
   note = {3.5.2},
   url = {https://CRAN.R-project.org/package=processx},
+  keywords = {code},
 }
 
 @Manual{purrr,
@@ -196,6 +222,7 @@ Vectors)},
   year = {2022},
   note = {1.0.0},
   url = {https://CRAN.R-project.org/package=purrr},
+  keywords = {code},
 }
 
 @Manual{RColorBrewer,
@@ -204,6 +231,7 @@ Vectors)},
   year = {2014},
   note = {1.1-2},
   url = {https://CRAN.R-project.org/package=RColorBrewer},
+  keywords = {code},
 }
 
 @Manual{readxl,
@@ -212,14 +240,16 @@ Vectors)},
   year = {2019},
   note = {1.3.1},
   url = {https://CRAN.R-project.org/package=readxl},
+  keywords = {code},
 }
 
 @Manual{remotes,
   title = {remotes: R Package Installation from Remote Repositories, Including `GitHub'},
-  author = {Gábor Csárdi and Jim Hester and Hadley Wickham and Winston Chang and Martin Morgan and Dan Tenenbaum},
+  author = {G\'{a}bor Cs\'{a}rdi and Jim Hester and Hadley Wickham and Winston Chang and Martin Morgan and Dan Tenenbaum},
   year = {2021},
   note = {2.4.2},
   url = {https://CRAN.R-project.org/package=remotes},
+  keywords = {code},
 }
 
 @Manual{rlang,
@@ -228,6 +258,7 @@ Vectors)},
   year = {2023},
   note = {1.1.0},
   url = {https://CRAN.R-project.org/package=rlang},
+  keywords = {code},
 }
 
 @Article{sf,
@@ -240,6 +271,7 @@ Vectors)},
   pages = {439--446},
   volume = {10},
   number = {1},
+  keywords = {code},
 }
 
 @Manual{stringr,
@@ -248,14 +280,16 @@ Vectors)},
   year = {2019},
   note = {1.4.0},
   url = {https://CRAN.R-project.org/package=stringr},
+  keywords = {code},
 }
 
 @Manual{tibble,
   title = {tibble: Simple Data Frames},
-  author = {Kirill Müller and Hadley Wickham},
+  author = {Kirill M\"{u}ller and Hadley Wickham},
   year = {2021},
   note = {3.1.3},
   url = {https://CRAN.R-project.org/package=tibble},
+  keywords = {code},
 }
 
 @Manual{tidyr,
@@ -264,6 +298,7 @@ Vectors)},
   year = {2021},
   note = {1.1.3},
   url = {https://CRAN.R-project.org/package=tidyr},
+  keywords = {code},
 }
 
 @Manual{tidyselect,
@@ -272,6 +307,7 @@ Vectors)},
   year = {2021},
   note = {1.1.1},
   url = {https://CRAN.R-project.org/package=tidyselect},
+  keywords = {code},
 }
 
 @Article{units,
@@ -283,6 +319,7 @@ Vectors)},
   pages = {486--494},
   volume = {8},
   number = {2},
+  keywords = {code},
 }
 
 @Manual{unix,
@@ -291,6 +328,7 @@ Vectors)},
   year = {2020},
   note = {1.5.2},
   url = {https://CRAN.R-project.org/package=unix},
+  keywords = {code},
 }
 
 @Manual{xml2,
@@ -299,4 +337,5 @@ Vectors)},
   year = {2020},
   note = {1.3.2},
   url = {https://CRAN.R-project.org/package=xml2},
+  keywords = {code},
 }

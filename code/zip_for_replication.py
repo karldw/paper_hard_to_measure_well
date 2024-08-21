@@ -28,7 +28,6 @@ def write_drillinginfo_data(zip_filename):
             "NM_Producing_Entity_Monthly_Production.CSV.gz",
         )
     ]
-
     with ZipFile(zip_filename, "w") as z:
         [z.write(f) for f in to_write]
 
@@ -46,13 +45,14 @@ def write_public(zip_filename):
             "reference_recompletion.pdf",
         )
     ]
+    to_write += (data / "drillinginfo/SHA256SUM",)
     to_write += (data / "bea").iterdir()
-    to_write += (data / "eia").iterdir()
+    to_write += (data / "eia/emission_annual.xls",)
     to_write += [
         data / "epa" / f
         for f in ("EPA_GHG_report_2020_table_data.zip", "egrid2018_summary_tables.pdf")
     ]
-    to_write += (data / "fred").iterdir()
+    to_write += (data / "fred/CPILFENS.csv",)
     to_write += [
         data / "snl" / f
         for f in (
@@ -94,36 +94,30 @@ def write_public(zip_filename):
     to_write += (code_dir / "envs").iterdir()
     to_write += (code_dir / "stan_models").glob("*.stan")  # exclude compiled models
 
-    # Graphics (that aren't recreated)
-    to_write += [
-        Path("graphics") / f
-        for f in (
-            "game_tree_audit_covariates.tikz",
-            "game_tree_audit_leak.tikz",
-            "game_tree_audit_leak_censor.tikz",
-            "marks_2018_fig4a.png",
-            "natural_gas_leakage_percentages_marks_fig1.png",
-            "ORCIDiD_iconvector.pdf",
-            "frankenberg_etal_2016_fig1.jpg",
-            "frankenberg_etal_2016_fig4-4.jpg",
-        )
-    ]
+    to_write += [f for f in Path("graphics").iterdir() if f.is_file()]
 
     # Output
     output_dir = Path("output")
     to_write += [
         output_dir / f
         for f in (
+            "data_cites.bib",
             "define_acronyms.tex",
+            ".latexmkrc",
             "methane_measurement_refs.bib",
+            "online_appendix.tex",
+            "paper_appendix_shared_preamble.tex",
             "paper.tex",
             "refs.bib",
+            "software_cites_generated.tex",
             "software_cites_python.bib",
             "software_cites_r.bib",
-            "tex_fragments/README.md",
+            "software_cites_r_raw.bib",
         )
     ]
     to_write += (output_dir / "individual_figures").iterdir()
+    to_write += (output_dir / "tex_fragments").iterdir()
+
 
     with ZipFile(zip_filename, "w") as z:
         [z.write(f) for f in to_write]

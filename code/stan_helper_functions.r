@@ -162,6 +162,7 @@ extract_draws <- function(fit, ...) {
   if (length(selected) == 0) {
     selected <- available
   }
+  message("  Using files:\n  - ", paste0(files, collapse="\n  - "))
   draws_lst <- purrr::map(files, cmdstanr::read_cmdstan_csv, variables=selected) %>%
     extract_from_each("post_warmup_draws")
   # bind_draws doesn't have a method for a list, but does handle ... args.

@@ -385,20 +385,20 @@ if (! exists("snakemake")) {
     output = list(
       # Order matters here (we'll index by position later)
       well_summary_stats = c(
-        TEX_FRAGMENTS / "well_summary_stats_aviris_matched.tex", # 1
-        TEX_FRAGMENTS / "well_summary_stats_lyon.tex",           # 2
-        TEX_FRAGMENTS / "well_summary_stats_all_2018.tex"        # 3
+        TEX_FRAGMENTS / "table01_well_summary_stats_aviris_matched.tex", # 1
+        TEX_FRAGMENTS / "table01_well_summary_stats_lyon.tex",           # 2
+        TEX_FRAGMENTS / "table01_well_summary_stats_all_2018.tex"        # 3
       ),
-      covariate_balance_by_leak = TEX_FRAGMENTS / "well_covariate_balance.tex",
-      covariate_balance_by_flyover = TEX_FRAGMENTS / "well_covariate_balance_by_flyover.tex",
+      covariate_balance_by_leak = TEX_FRAGMENTS / "tableA02_well_covariate_balance.tex",
+      # covariate_balance_by_flyover = TEX_FRAGMENTS / "well_covariate_balance_by_flyover.tex",
       # Order matters here (we'll index by position later)
       obs_counts = c(
-        TEX_FRAGMENTS / "num_rows_aviris_matched.tex",
-        TEX_FRAGMENTS / "num_rows_aviris_with_leak.tex",
-        TEX_FRAGMENTS / "num_rows_lyon.tex",
-        TEX_FRAGMENTS / "num_rows_all_2018.tex"
+        TEX_FRAGMENTS / "table01_num_rows_aviris_matched.tex",
+        TEX_FRAGMENTS / "table01_num_rows_aviris_with_leak.tex",
+        TEX_FRAGMENTS / "table01_num_rows_lyon.tex",
+        TEX_FRAGMENTS / "table01_num_rows_all_2018.tex"
       ),
-      percent_wells_with_gas = TEX_FRAGMENTS / "summ_percent_wells_nonzero_gas_in_us.tex"
+      percent_wells_with_gas = TEX_FRAGMENTS / "intext_summ_percent_wells_nonzero_gas_in_us.tex"
     )
   )
 }
@@ -435,7 +435,7 @@ write_n_obs(
 )
 
 balance_table_by_leak_status(df_list, snakemake@output$covariate_balance_by_leak)
-balance_table_by_flyover_status(df_list, snakemake@output$covariate_balance_by_flyover)
+# balance_table_by_flyover_status(df_list, snakemake@output$covariate_balance_by_flyover)
 count_gas_vs_nongas_wells(prod_dir, snakemake@input$well_pad_crosswalk,
   snakemake@output$percent_wells_with_gas
 )

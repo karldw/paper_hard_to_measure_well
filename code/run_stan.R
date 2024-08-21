@@ -43,6 +43,11 @@ log_all_output(snakemake@log)
 BOOTSTRAP_ITER <- 100 # If we're bootstrapping, how many iter?
 # 50 for good accuracy with reasonable re-run times, but ultimately ~100 is preferable
 
+# Running into some issues where, in a very small fraction of runs, the values
+# of alpha are rounding to -1, when they need to be strictly < -1.
+# Stan's default is 6.
+STAN_SIG_FIGS <- 8L
+
 options(mc.cores=snakemake@threads)
 set.seed(7)
 mem_limit <- snakemake@resources[['mem_mb']] %||% NA_integer_
@@ -129,6 +134,7 @@ if (operate_mode == "generate") {
   }
   arg_list <- list(
     algorithm = "generate",
+    sig_figs = STAN_SIG_FIGS,
     fitted_params = existing_fit
   )
   generate_row_count <- sdata$N
@@ -136,14 +142,6 @@ if (operate_mode == "generate") {
     purrr::compact() %>%
     purrr::as_vector()
   output_dir <- fs::fs_path(unique(dirname(output_files)))
-  if (model_name %in% MODEL_NAMES$cost_coef_models) {
-    # Only these cost coef models put out these cost_param files, and it's
-    # easier to add them here than have two separate snakemake rules.
-    output_files <- c(output_files,
-      cost_param_A = output_dir / "cost_param_A.parquet",
-      cost_param_alpha = output_dir / "cost_param_alpha.parquet"
-    )
-  }
   output_names <- names(output_files)
   stopifnot(
     length(output_dir) == 1,
@@ -167,6 +165,7 @@ if (operate_mode == "generate") {
     show_messages = FALSE,
     adapt_delta = get_adapt_delta(snakemake@resources[["attempt_count"]]),
     refresh = 0,
+    sig_figs = STAN_SIG_FIGS,
     validate_csv = FALSE, # see cmdstanr #280
     chains = BOOTSTRAP_ITER # number of bootstrap iterations
   )
@@ -190,6 +189,7 @@ if (operate_mode == "generate") {
     iter_sampling = 3000,
     # avoid expensive mistakes where we hit 100% max treedepth at max_treedepth = 10
     max_treedepth = 9,
+    sig_figs = STAN_SIG_FIGS,
     adapt_delta = get_adapt_delta(snakemake@resources[["attempt_count"]]),
     algorithm = "sampling"
   )

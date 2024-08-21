@@ -14,27 +14,27 @@ LEAK_SIZE_DEF <- read_constants()[["LEAK_SIZE_DEF"]]
 if (!exists("snakemake")) {
   message("Using placeholder snakemake")
   TEX_FRAGMENTS <- fs::fs_path(here::here("output/tex_fragments"))
-  STAN_FITS <- fs::fs_path(here::here("data/generated/stan_fits/main_spec"))
+  STAN_FITS <- fs::fs_path(here::here("scratch/stan_fits/main_spec"))
   snakemake <- SnakemakePlaceholder(
     input=list(
       # NOTE: the order here (and in the snakemake file) is the order of the
       # columns in the table.
       distribution_fits = c(
-        STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours/model_fit.rds"
+        STAN_FITS / "09_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours/model_fit.rds"
       ),
       measurements = here::here("data/generated/methane_measures/matched_wells_all.parquet"),
       stan_data_json = c(
-        STAN_FITS / "08_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours/stan_data.json"
+        STAN_FITS / "09_twopart_lognormal_heterog_alpha-bootstrap-period_8760_hours/stan_data.json"
       )
     ),
     output = list(
-      model_prob_leak_plot = "graphics/model_prob_leak_plot.pdf",
-      model_cost_vs_q_plot = "graphics/model_cost_vs_q_plot.pdf",
-      model_cost_vs_q_dwl_plot = "graphics/model_cost_vs_q_dwl_plot.pdf",
-      model_coef  = TEX_FRAGMENTS / "model_parameters.tex",
-      model_coef_footer  = TEX_FRAGMENTS / "model_parameters_footer.tex",
-      model_prob_size_above_threshold_histogram = "graphics/model_prob_size_above_threshold_histogram.pdf",
-      model_cost_alpha_histogram = "graphics/model_cost_alpha_histogram.pdf"
+      # model_prob_leak_plot = "graphics/model_prob_leak_plot.pdf",
+      model_cost_vs_q_plot = "graphics/model_cost_vs_q_plot.pdf", # DEBUG
+      model_cost_vs_q_dwl_plot = "graphics/figure03_model_cost_vs_q_dwl_plot.pdf",
+      model_coef  = TEX_FRAGMENTS / "tableA03_model_parameters.tex",
+      model_coef_footer  = TEX_FRAGMENTS / "tableA03_model_parameters_footer.tex",
+      # model_prob_size_above_threshold_histogram = "graphics/model_prob_size_above_threshold_histogram.pdf",
+      model_cost_alpha_histogram = "graphics/figureA09_model_cost_alpha_histogram.pdf"
     ),
     threads=1,
     resources=list(mem_mb = 13000)
@@ -82,7 +82,7 @@ plot_model_prob_leak <- function(prob_leak_file, outfile) {
     ggplot2::theme_bw() +
     ggplot2::labs(x="Probability of leaking (%; winsorized)", y="Density")
 
-  save_plot(plt, outfile, reproducible=TRUE)
+  save_plot(plt, outfile)
 }
 
 read_dist_fit <- function(distribution_fit, depvar = c("leak size", "obs leak", "alpha")) {
@@ -358,19 +358,16 @@ which_quantile <- function(x, prob) {
   which.min(abs(x - q))
 }
 
-plot_model_cost_param <- function(model_dir, outfile_cost, outfile_dwl) {
-  # Create two plots here:
+
+load_data_to_plot <- function(model_dir) {
+  # Load data for two plots here:
   # 1. Cost param with uncertainty
   # 2. Shaded DWL
   model_dir <- fs::fs_path(model_dir)
   model_name <- filename_to_model_name(model_dir / "model_fit.rds")
   time_period_hr <- filename_to_time_period_hr(model_dir)
 
-  stopifnot(
-    model_name %in% MODEL_NAMES$cost_coef_models,
-    length(outfile_cost) == 1,
-    length(outfile_dwl) == 1
-  )
+  stopifnot(model_name %in% MODEL_NAMES$cost_coef_models)
   cost_param_A_file <- model_dir / "cost_param_A.parquet"
   cost_param_alpha_file <- model_dir / "cost_param_alpha.parquet"
   leak_size_expect_file <- model_dir / "leak_size_expect.parquet"
@@ -463,18 +460,23 @@ plot_model_cost_param <- function(model_dir, outfile_cost, outfile_dwl) {
     y = c(line_private, line_policy, line_optimal) + c(1.4, 1.7, 1.7),
     x = min(to_plot$q),
   )
+  list(
+    to_plot=to_plot,
+    text_labels=text_labels,
+    line_private=line_private,
+    line_policy=line_policy,
+    line_optimal=line_optimal
+  )
+}
 
-  to_plot_median <- dplyr::filter(to_plot, draw_percentile == 50)
-  stopifnot(nrow(dplyr::distinct(to_plot_median, A, alpha)) == 1)
-  intersection_y <- c(line_private, line_policy, line_optimal) * unique(to_plot_median$leak_size_mcf)
-  # unique here because there are duplicates for every q
-  intersection_x <- 1 - (intersection_y / unique(to_plot_median$A)) ^ (1 / unique(to_plot_median$alpha))
 
-  dwl_region_orig <- to_plot_median %>%
-    dplyr::filter(dplyr::between(.data$q, intersection_x[1], intersection_x[3]))
-  dwl_region_with_policy <- to_plot_median %>%
-    dplyr::filter(dplyr::between(.data$q, intersection_x[2], intersection_x[3]))
-  dwl_region_colors <- c("gray", "gray")
+plot_model_cost_param <- function(model_dir, outfile_cost) {
+  stopifnot(length(outfile_cost) == 1)
+  df_lst <- load_data_to_plot(model_dir)
+  to_plot      <- df_lst[["to_plot"]]
+  text_labels  <- df_lst[["text_labels"]]
+  line_private <- df_lst[["line_private"]]
+  line_optimal <- df_lst[["line_optimal"]]
 
   plt_cost <- ggplot2::ggplot(to_plot) +
     ggplot2::geom_line(ggplot2::aes(q, marg_cost_per_mcf, color=draw_percentile_fct)) +
@@ -488,6 +490,31 @@ plot_model_cost_param <- function(model_dir, outfile_cost, outfile_dwl) {
       y="",
       subtitle="$ / mcf"
     )
+  save_plot(plt_cost, outfile_cost) # model_cost_vs_q_plot.pdf
+}
+
+
+plot_model_shaded_dwl <- function(model_dir, outfile_dwl) {
+  stopifnot(length(outfile_dwl) == 1)
+  df_lst <- load_data_to_plot(model_dir)
+  to_plot      <- df_lst[["to_plot"]]
+  text_labels  <- df_lst[["text_labels"]]
+  line_private <- df_lst[["line_private"]]
+  line_policy  <- df_lst[["line_policy"]]
+  line_optimal <- df_lst[["line_optimal"]]
+
+  to_plot_median <- dplyr::filter(to_plot, draw_percentile == 50)
+  stopifnot(nrow(dplyr::distinct(to_plot_median, A, alpha)) == 1)
+  intersection_y <- c(line_private, line_policy, line_optimal) * unique(to_plot_median$leak_size_mcf)
+  # unique here because there are duplicates for every q
+  intersection_x <- 1 - (intersection_y / unique(to_plot_median$A)) ^ (1 / unique(to_plot_median$alpha))
+
+  dwl_region_orig <- to_plot_median %>%
+    dplyr::filter(dplyr::between(.data$q, intersection_x[1], intersection_x[3]))
+  dwl_region_with_policy <- to_plot_median %>%
+    dplyr::filter(dplyr::between(.data$q, intersection_x[2], intersection_x[3]))
+  dwl_region_colors <- c("gray", "gray")
+
   plt_dwl <- ggplot2::ggplot(to_plot_median, ggplot2::aes(q, marg_cost_per_mcf)) +
     ggplot2::geom_line() +
     ggplot2::geom_line(data=to_plot, alpha=0) + # add to plot to make the axis the same for both graphs.
@@ -503,10 +530,9 @@ plot_model_cost_param <- function(model_dir, outfile_cost, outfile_dwl) {
       y="",
       subtitle="$ / mcf"
     )
-
-  save_plot(plt_cost, outfile_cost, reproducible=TRUE)
-  save_plot(plt_dwl, outfile_dwl, reproducible=TRUE)
+  save_plot(plt_dwl, outfile_dwl) # model_cost_vs_q_dwl_plot.pdf
 }
+
 
 load_data_by_leak_size_bin <- function(model_dir) {
   # This function is only used by plot_model_by_leak_size_bin, but makes some
@@ -544,6 +570,7 @@ load_data_by_leak_size_bin <- function(model_dir) {
 
   return(to_plot)
 }
+
 
 plot_model_by_leak_size_bin <- function(model_dir, outfile_alpha, outfile_leak) {
   # Note: this function is old and no longer used. If you re-enable it, need to re-add the ggridges=0.5.3 dependency.
@@ -586,8 +613,8 @@ plot_model_by_leak_size_bin <- function(model_dir, outfile_alpha, outfile_leak) 
       y = "Leak size quintile"
     )
 
-  save_plot(plt_alpha, outfile_alpha, reproducible=TRUE)
-  save_plot(plt_leak_size, outfile_leak, reproducible=TRUE)
+  save_plot(plt_alpha, outfile_alpha)
+  save_plot(plt_leak_size, outfile_leak)
 }
 
 
@@ -619,7 +646,7 @@ plot_alpha_histogram <- function(model_dir, outfile_alpha, with_titles=FALSE) {
         subtitle = "Mean across draws for each well",
       )
   }
-  save_plot(plt_alpha, outfile_alpha, reproducible=TRUE)
+  save_plot(plt_alpha, outfile_alpha)
 }
 
 plot_prob_size_above_threshold_histogram <- function(model_dir, outfile) {
@@ -647,7 +674,7 @@ plot_prob_size_above_threshold_histogram <- function(model_dir, outfile) {
       x = "Pr(e > 100 | X)",
       y = "Density"
     )
-  save_plot(plt, outfile, reproducible=TRUE)
+  save_plot(plt, outfile)
 }
 
 
@@ -663,25 +690,29 @@ stopifnot(length(model_dir_to_plot) == 1)
 # )
 
 
-plot_prob_size_above_threshold_histogram(
-  model_dir_to_plot,
-  snakemake@output$model_prob_size_above_threshold_histogram
-)
+# plot_prob_size_above_threshold_histogram(
+#   model_dir_to_plot,
+#   snakemake@output$model_prob_size_above_threshold_histogram
+# )
 
 plot_alpha_histogram(
   model_dir_to_plot,
   snakemake@output$model_cost_alpha_histogram
 )
 
-plot_model_cost_param(
+# plot_model_cost_param(
+#   model_dir_to_plot,
+#   snakemake@output$model_cost_vs_q_plot
+# )
+
+plot_model_shaded_dwl(
   model_dir_to_plot,
-  snakemake@output$model_cost_vs_q_plot,
   snakemake@output$model_cost_vs_q_dwl_plot
 )
 
-plot_model_prob_leak(
-  model_dir_to_plot / "prob_leak.parquet",
-  outfile = snakemake@output$model_prob_leak_plot
-)
+# plot_model_prob_leak(
+#   model_dir_to_plot / "prob_leak.parquet",
+#   outfile = snakemake@output$model_prob_leak_plot
+# )
 
 write_coefs_table(snakemake)

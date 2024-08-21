@@ -1296,6 +1296,446 @@ log_all_output <- function(log_file, append = FALSE) {
 }
 
 
+is_ghostscript_available <- function() {
+  # NOTE: this has not been tested on windows *at all*, but might work with some tweaks.
+  if (get_os() == "win") {
+    gs_cmd <- "gswin64c.exe"
+  } else {
+    gs_cmd <- "gs"
+  }
+  suppressWarnings(rc <- system2("gs", "--version", stderr=FALSE, stdout=FALSE))
+  can_use_gs <- (rc == 0)
+  can_use_gs
+}
+
+
+convert_to_cmyk <- function(infile, outfile) {
+  if (get_os() == "win") {
+    gs_cmd <- "gswin64c.exe"
+  } else {
+    gs_cmd <- "gs"
+  }
+  # Adapted from
+  # https://web.archive.org/web/20221007131958/http://zeroset.mnim.org/2014/07/14/save-a-pdf-to-cmyk-with-inkscape/
+  cmyk_args <- c(
+    paste0("-sOutputFile=", outfile),
+    "-sDEVICE=pdfwrite",
+    "-dSAFER",
+    "-dNOPAUSE",
+    "-dBATCH",
+    "-dAutoRotatePages=/None",
+    "-sProcessColorModel=DeviceCMYK",
+    "-sColorConversionStrategy=CMYK",
+    "-sColorConversionStrategyForImages=CMYK",
+    "-dDownsampleMonoImages=false",
+    "-dDownsampleGrayImages=false",
+    "-dCannotEmbedFontPolicy=/Error",
+    "-dCompatibilityLevel=1.5",
+    # The goal is CMYK, but while we're at it, also remove the timestamp and UUID.
+    "-dOmitInfoDate=true",
+    "-dOmitID=true",
+    "-sDocumentUUID=_",
+    "-sInstanceUUID=_",
+    infile
+  )
+  # This was written for ghostscript version 10.02, but should work for other recent
+  # ghostscript versions. Note that there was a change to color profiles in version 9.
+  rc <- system2(gs_cmd, cmyk_args, stderr="", stdout=FALSE)
+  if (rc != 0) {
+    # This is an error (unlike gs not being available) because the file won't be saved to the right place.
+    stop("Failed to convert to CMYK.\n  Args used: ", paste0(c(gs_cmd, cmyk_args), collapse=" "))
+  }
+  invisible(NULL)
+}
+
+
+# Remaining functions in this file are either directly from or adapted from
+# https://github.com/karldw/kdw.junk/tree/faad2210010660a911f50302b05de6a74e149cf3
+
+#' Winsorize one vector
+#'
+#' @param x Vector to winsorize (numeric)
+#' @param trim Fraction of data to trim (if length == 1, same at top and bottom,
+#'   if length == 2, trim different fractions)
+#' @param na.rm Remove NAs? Fails if NAs are present and this argument is FALSE
+#' @return x, but winsorized
+#'
+#' (this version deals with point masses!)
+#' @export
+winsorize <- function(x, trim = 0.01, na.rm = FALSE) {
+  stopifnot(purrr::is_atomic(x), purrr::is_atomic(trim), length(trim) %in% c(1, 2))
+  if (any(trim < 0) || any(trim > 0.5)) {
+    stop("trimming must be reasonable")
+  }
+  if (length(trim) == 1) {
+    trim <- c(trim, trim)
+  }
+  # Things like date can be winsorized, but dplyr::between is unhappy about it.
+  # set to a basic class first
+  if (typeof(x) %in% c("integer", "double") & !inherits(x, "double") & !inherits(x, "integer")) {
+    orig_class <- class(x)
+    x <- unclass(x)
+    must_reclass <- TRUE
+  } else {
+    must_reclass <- FALSE
+  }
+  # quantile approach borrowed from https://www.r-bloggers.com/winsorization/
+  # but improved by using type = 1
+  lim <- stats::quantile(x, probs = c(trim[1], 1 - trim[2]),
+    type = 1, names = FALSE, na.rm = na.rm)
+  x[x < lim[1]] <- lim[1]
+  x[x > lim[2]] <- lim[2]
+
+  if (must_reclass) {
+    class(x) <- orig_class
+  }
+  x
+}
+
+
+#' Save a ggplot plot
+#'
+#' @param plot The plot created by [ggplot2::ggplot()]
+#' @param filename The filename(s) to save (save type depends on extension)
+#' @param scale_mult A scale multiplier on the size. Defaults to 1; bigger
+#' numbers use a larger canvas. (If length 2, multiply width and height)
+#' @param bg The background color, passed to the output device. The default
+#' is "transparent". If set to "transparent", the plot will be modified to make
+#' the `panel.background`, `plot.background`, `legend.background`, and
+#' `legend.box.background` transparent as well. Set it to "white" to retain
+#' the normal ggplot behavior.
+#' @param device The device to use. Default depends on filename extension. Uses
+#' cairo_pdf devices when available. Use "tex" or "tikz" to save with [tikzDevice::tikz()].
+#' @param save_cmyk logical Use ghostscript to convert to CMYK?
+#'
+#' @return The plot (invisibly)
+#' @seealso [ggplot2::ggsave()]
+#'
+#' @export
+save_plot <- function(plot, filename, scale_mult = 1, bg = "transparent", device=NULL, save_cmyk=TRUE) {
+  force(plot)
+  if (length(filename) > 1) {
+    for (fl in filename) {
+      save_plot(
+        plot=plot, filename=fl,
+        scale_mult=scale_mult, bg=bg, device=device
+      )
+    }
+    return(invisible(plot))
+  }
+  stopifnot(dir.exists(dirname(filename)), length(scale_mult) %in% 1:2)
+  if (identical(bg, "transparent")) {
+    plot <- plot + ggplot2::theme(
+      # Borrowed from https://stackoverflow.com/a/41878833
+      panel.background      = ggplot2::element_rect(fill = "transparent", color = NA),
+      plot.background       = ggplot2::element_rect(fill = "transparent", color = NA),
+      strip.background      = ggplot2::element_rect(fill = "transparent", color = NA),
+      legend.background     = ggplot2::element_rect(fill = "transparent", color = NA),
+      legend.key            = ggplot2::element_rect(fill = "transparent", color = NA),
+      legend.box.background = ggplot2::element_rect(fill = "transparent", color = NA)
+    )
+  }
+  if (is.null(device)) {
+    dev_list <- list(
+      pdf = function(filename, ...) grDevices::cairo_pdf(filename=filename, ...),
+      tex = function(filename, ...) tikzDevice::tikz(filename=filename, ...),
+      tikz = function(filename, ...) tikzDevice::tikz(filename=filename, ...)
+    )
+    device <- dev_list[[tolower(tools::file_ext(filename))]]
+  }
+  # Save in the ratio of a beamer slide.
+  # This aspect ratio works pretty well for normal latex too
+  if (length(scale_mult) == 1) {
+    scale_mult <- c(scale_mult, scale_mult)
+  }
+  has_gs <- is_ghostscript_available()
+  if (save_cmyk && has_gs) {
+    ggsave_file <- tempfile(fileext=paste0(".", tools::file_ext(filename)))
+  } else {
+    ggsave_file <- filename
+  }
+
+  ggplot2::ggsave(filename = ggsave_file, plot = plot,
+    width = 6.3 * scale_mult[1], height = 3.54 * scale_mult[2], units = "in",
+    device = device, bg = bg)
+
+  # Note: grDevices::pdf has support for CMYK, but doesn't have support for fonts,
+  # so using cairo_pdf and converting externally.
+  if (save_cmyk) {
+    if (!has_gs) {
+      rlang::inform(glue::glue("Cannot convert {filename} to CMYK. Leaving as RGB."))
+    } else {
+      convert_to_cmyk(ggsave_file, filename)
+    }
+  }
+  invisible(plot)
+}
+
+
+#' Get the current operating system
+#'
+#' @return "win", "mac", or "linux".
+#' Only works for Windows, Mac, and Linux. (Non-Mac unix systems are reported as Linux.)
+#' @export
+get_os <- function() {
+  if (.Platform$OS.type == "windows") {
+    "win"
+  } else if (Sys.info()["sysname"] == "Darwin") {
+    "mac"
+  } else if (.Platform$OS.type == "unix") {
+    "linux"  # sorry BSD
+  } else {
+    stop("Unknown OS")
+  }
+}
+
+
+#' Rename columns in a table
+#'
+#' @param .tbl Table to rename
+#' @param .vars A named character vector, where the names are the new column
+#'   names and the values are existing column names.
+#' @param strict Should the function raise an error if existing column names
+#'   can't be found? (Default TRUE)
+#' @return The same .tbl, with some renamed columns
+#'
+#' Note that this function is the same as `colnames()<-` for in-memory
+#' data.frames, but also works for remote tbls. It's similar to pandas'
+#' `.rename` method.
+#'
+#' @examples
+#' cols_to_rename <- c(cyl2 = "cyl")
+#' rename_cols(mtcars, cols_to_rename)
+#' @export
+rename_cols <- function(.tbl, .vars, strict = TRUE) {
+  tbl_names <- colnames(.tbl)
+  old_names <- unname(.vars)
+  if ((! purrr::is_bare_character(.vars)) ||
+    (length(.vars) == 0) ||
+    length(names(.vars)) != length(.vars)) {
+    stop("Must provide a named character vector of variables to rename. The form should be c(\"new_name\" = \"old_name\")")
+  }
+  if (anyDuplicated(unname(.vars))) {
+    stop("The original names should not be duplicated")
+  }
+  # Get the index in tbl_names that we're going to rename
+  # Will be NA if missing
+  rename_idx <- match(old_names, tbl_names)
+  if (anyNA(rename_idx)) {
+    if (strict) {
+      stop("Variables not present to rename:\n  ", paste(old_names[is.na(rename_idx)], collapse = ", "))
+    }
+    rename_idx <- rename_idx[!is.na(rename_idx)]
+  }
+  .renaming_fn <- function(x) {
+    # new name is stored in the names attribute
+    names(.vars[old_names == x])
+  }
+  out <- dplyr::rename_at(.tbl,
+     .vars = dplyr::vars(rename_idx),
+     .funs = list(.renaming_fn))
+  out
+}
+
+
+#' Get or set memory limits
+#'
+#' For Linux (or BSD), this function calls [unix::rlimit_as()]
+#' For Windows, this function calls [utils::memory.limit()]
+#' For Mac OS X, no limiting is available.
+#'
+#' @param size numeric. Request a new limit, in MiB.
+#' @return A vector with the (new) limit, in MiB.
+#' @seealso \link[base]{Memory-limits} for other limits.
+#' @export
+memory_limit <- function(size = NA) {
+  os <- get_os()
+  if (os == "win") {
+    if (is.null(size)) {
+      size <- NA
+    }
+    limit <- utils::memory.limit(size)
+  } else if (os == "linux") {
+    if (!requireNamespace("unix", quietly=TRUE)) {
+      stop("Limiting memory on linux requires the 'unix' package")
+    }
+    if (is.null(size) || is.na(size)) {
+      size <- NULL
+    } else {
+      size <- size * (1024^2) # rlimit_as expects bytes
+    }
+    limit <- unix::rlimit_as(size)$cur
+  } else {
+    warning("Sorry, memory limits on OS X are not supported")
+    limit <- NULL
+  }
+  invisible(limit)
+}
+
+
+#' Make names nicer to work with
+#'
+#' @param x A character vector of names
+#' @return A transformed version of those names
+#' @seealso [make.names()] and [tibble::tibble()]'s `.name_repair` argument
+#'
+#' Resulting names are guaranteed to be unique, and will almost certainly be
+#' syntactic.
+#'
+#' @examples
+#' make_better_names(c("Country", "GDP $M", "Coast.Length"))
+#' #> [1] "country" "gdp_mn"  "coast_length"
+#' # Note that the guarantee to make the names unique can lead to some surprises
+#' # for example, "a_and_b" becomes "a_and_b_3" in this case:
+#' make_better_names(c("a and b", "a-and-b", "a.and.b", "a_and_b"))
+#' #> c("a_and_b", "a_and_b_1", "a_and_b_2", "a_and_b_3")
+#' # Here's a way to have a bad time:
+#' make_better_names(c("", "x", "X", "x_1"))
+#' @export
+make_better_names <- function(x) {
+  `.` <- NULL # make R CMD CHECK happy
+  better_names <- gsub("%", "pct", x, fixed=TRUE) %>%
+    gsub("$M", "mn", ., fixed=TRUE) %>%
+    gsub("$B", "bn", ., fixed=TRUE) %>%
+    gsub("$T", "tn", ., fixed=TRUE) %>%
+    make.names() %>%
+    tolower() %>%
+    gsub(".", "_", ., fixed=TRUE) %>%
+    gsub("_+", "_", ., perl=TRUE) %>%
+    gsub("^_|_$", "", ., perl=TRUE)
+  loop_count <- 0L
+  while (anyDuplicated(better_names) != 0) {
+    loop_count <- loop_count + 1L
+    if (loop_count > 100L) {
+      stop("Failed to make names unique!")
+    }
+    better_names <- gsub(".", "_", make.names(better_names, unique=TRUE), fixed=TRUE)
+  }
+  better_names
+}
+
+
+## From uniqueness.r:
+
+#' Do the claimed variables identify rows?
+#'
+#' Just like Stata's isid. For normal tables, this runs faster if data.table is
+#' installed.
+#'
+#' @param df A dataframe to test
+#' @param ... Variable names, following [dplyr::select] rules
+#' @param notifier A function to report conditions you wouldn't want in an ID variable
+#'  (Defaults to [base::warning]. Other reasonable options might be [base::stop] to
+#'   escalate issues or [base::force] to not report them.)
+#' @return TRUE/FALSE for ID-ness
+#' @examples
+#' is_id(mtcars, cyl)  # FALSE
+#' is_id(Loblolly, Seed) # FALSE
+#' is_id(Loblolly, Seed, age) # TRUE
+#' vars <- c("Seed", "age")
+#' is_id(Loblolly, vars) # TRUE
+#' @export
+is_id <- function(df, ..., notifier = base::warning) {
+  UseMethod("is_id")
+}
+
+#' @export
+is_id.sf <- function(df, ..., notifier = base::warning) {
+  df <- sf::st_drop_geometry(df)
+  NextMethod()
+}
+
+#' @export
+is_id.data.frame <- function(df, ..., notifier = base::warning) {
+  df_names <- colnames(df)
+  # eval_select checks if columns are missing
+  claimed_id_vars <- df_names[tidyselect::eval_select(rlang::expr(c(...)), df)]
+
+  stopifnot(is.character(claimed_id_vars), length(claimed_id_vars) > 0,
+            is.function(notifier))
+  df_id_cols_only <- dplyr::ungroup(dplyr::select(df, tidyselect::all_of(claimed_id_vars)))
+  id_cols_with_na <- purrr::map_lgl(df_id_cols_only, anyNA)
+  if (any(id_cols_with_na)) {
+    err_msg <- paste("ID variables cannot be NA. Problem variables:",
+      paste(colnames(id_cols_with_na)[id_cols_with_na], collapse = ", "), sep = "\n")
+    notifier(err_msg)
+    return(FALSE)
+  }
+  total_row_count <- nrow(df_id_cols_only)
+  if (total_row_count == 0) {
+    notifier("No rows!")
+    return(FALSE)
+  }
+
+  # Timing considerations:
+  # - anyDuplicated from data.table is fastest by far
+  # - dplyr::distinct() is good, and faster than `count` when there's one column
+  # - dplyr::count() is good, and can be better than `distinct` when there are
+  #   multiple columns and the data are unique
+  # - base::anyDuplicated is slow
+  # Tests on this data:
+  # df <- purrr::map_dfr(1:10, ~dplyr::mutate(nycflights13::flights, rep_group = .))
+  if (requireNamespace("data.table", quietly=TRUE)) {
+    ids_are_unique <- anyDuplicated(data.table::as.data.table(df_id_cols_only)) == 0
+  } else {
+    ids_are_unique <- nrow(dplyr::distinct(df_id_cols_only)) == total_row_count
+  }
+  return(ids_are_unique)
+}
+
+#' @export
+is_id.tbl_lazy <- function(df, ..., notifier = base::warning) {
+  `.` <- NULL # make R CMD CHECK happy.
+  df <- dplyr::collect(df, 0L)
+  df_names <- colnames(df)
+
+  # eval_select checks if columns are missing
+  claimed_id_vars <- df_names[tidyselect::eval_select(rlang::expr(c(...)), df)]
+
+  stopifnot(is.character(claimed_id_vars), length(claimed_id_vars) > 0,
+            is.function(notifier))
+
+  any_vars <- dplyr::any_vars  # does nothing except satisfy R CMD CHECK
+  df_id_cols_only <- dplyr::ungroup(dplyr::select(df, tidyselect::all_of(claimed_id_vars)))
+  df_nas <- dplyr::filter_all(df_id_cols_only, any_vars(is.na(.)))
+  df_nas_nrow <- nrow(utils::head(df_nas, 1), force = TRUE)
+  # If the df_nas table has any rows, at least one ID variable contains NAs
+  if (df_nas_nrow > 0) {
+    notifier("ID variables cannot be NA.")
+    return(FALSE)
+  }
+
+  total_row_count <- nrow(df_id_cols_only, force = TRUE)
+  if (total_row_count == 0) {
+    notifier("No rows!")
+    return(FALSE)
+  }
+  nrow_distinct <- nrow(dplyr::distinct(df_id_cols_only), force = TRUE)
+
+  nrow_distinct == total_row_count
+}
+
+
+#' Raise an error if the claimed variables don't uniquely identify rows.
+#'
+#' Calls [is_id] (with warnings as errors), then returns the original data if [is_id]
+#' returns `TRUE`.
+#'
+#' @param df A dataframe to test
+#' @param ... Passed to [is_id]
+#' @return Original `df`
+#' @export
+ensure_id_vars <- function(df, ...) {
+  if (! isTRUE(is_id(df, ..., notifier = base::stop))) {
+    claimed_id_vars <- tidyselect::vars_select(colnames(df), ...)
+    stop("Variables don't uniquely identify rows: ",
+         paste(claimed_id_vars, collapse = ", "))
+  }
+  df
+}
+
+## End of function definitions ##
+
 
 
 # Check every time:
@@ -1315,7 +1755,6 @@ if (requireNamespace("rlang", quietly=TRUE)) {
   rlang::global_entrace()
 }
 if (requireNamespace("here", quietly=TRUE)) {
-  source(here::here("code/kdw_package_code.r"))
   DATA_DIR <- here::here("data")
   if (requireNamespace("jsonlite", quietly=TRUE)) {
     MODEL_NAMES <- read_constants()[["MODEL_NAMES"]]

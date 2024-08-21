@@ -31,14 +31,15 @@ plot_price <- function(price_file, outfile) {
     ) %>%
     dplyr::mutate(region_fct = factor(basin, levels = c("San Joaquin", "San Juan"), labels=c("CA", "NM / CO")))
   stopifnot(noNAs(to_plot))
-  plt <- ggplot2::ggplot(to_plot, ggplot2::aes(date, price_real, color=region_fct)) +
+  plt <- ggplot2::ggplot(to_plot, ggplot2::aes(date, price_real, color=region_fct, linetype=region_fct)) +
     ggplot2::geom_line() +
     ggplot2::scale_color_brewer(palette="Dark2") +
+    ggplot2::scale_linetype_manual(values=1:2) +
     ggplot2::theme_bw() +
-    ggplot2::labs(x="", y="Price ($2019/mcf)", color="") +
+    ggplot2::labs(x="", y="Price ($2019/mcf)", color="", linetype="") +
     ggplot2::ylim(0, NA) +
     ggplot2::theme(legend.position = c(0.1, 0.2))
-  save_plot(plt, outfile, reproducible=TRUE)
+  save_plot(plt, outfile)
   invisible(plt)
 }
 
@@ -77,7 +78,7 @@ plot_histogram <- function(matched_leaks_file, outfile) {
     ) +
     ggplot2::scale_color_brewer(palette="Dark2") +
     ggplot2::theme(legend.position = c(0.15, 0.8))
-  save_plot(plt, outfile, reproducible=TRUE)
+  save_plot(plt, outfile)
   invisible(plt)
 }
 
@@ -106,7 +107,7 @@ plot_ecdf <- function(matched_leaks_file, outfile) {
       color=""
     ) +
     ggplot2::theme(legend.position = c(0.15, 0.85))
-  save_plot(plt, outfile, reproducible=TRUE)
+  save_plot(plt, outfile)
   invisible(plt)
 }
 

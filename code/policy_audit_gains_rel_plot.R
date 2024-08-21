@@ -176,7 +176,7 @@ plot_rel_outcome <- function(df, outcome_var, outfile, fee_labels = c("detailed"
   if (fee_label == "detailed") {
     plt <- plt + ggplot2::geom_errorbar(width=0.2, position=ggplot2::position_dodge(width=0.9))
   }
-  save_plot(plt_bar, outfile, reproducible=TRUE, scale_mult=1.2)
+  save_plot(plt_bar, outfile, scale_mult=1.2)
 }
 
 

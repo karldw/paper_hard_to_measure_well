@@ -61,8 +61,8 @@ fee_table_shared <- function(df, outfile) {
 
 make_one_table_fee_fixed_pct <- function(results_df, wildcards, outfile) {
   # Assemble the expected fee table, with a name like
-  # "expected_fee_10pct_low_tau.tex". Read the desired percentage from the
-  # filename.
+  # "tableA04_expected_fee_10pct_low_tau.tex". Read the desired percentage from
+  # the filename.
   # Columns are mean, median, p25 and p75 audit frac, with CI for each.
   # The point estimates are the mean across draws of the statistic, so the
   # variable name for the mean is `fee_per_kg_mean_mean`, with CI

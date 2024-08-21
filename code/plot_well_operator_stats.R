@@ -4,8 +4,7 @@ suppressMessages(
 )
 source(here::here("code/shared_functions.r"))
 source(here::here("code/model_data_prep.r"))
-# SOURCE_DATE_EPOCH asks save_plot to change the timestamp in the file
-options(scipen=99, SOURCE_DATE_EPOCH=0)
+options(scipen=99)
 
 plot_well_pads_per_operator_cdf <- function(well_pad_crosswalk, output_file) {
   stopifnot(nrow(well_pad_crosswalk) > 1,  length(output_file) == 1)

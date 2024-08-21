@@ -9,6 +9,8 @@
 /output/*_files/
 
 /notes/*.pdf
+notes/referee_reports/jaere_sub1/response_to_reviewers.pdf
+notes/referee_reports/jaere_sub1/response_to_reviewers.log
 
 pdfa.xmpi
 comment.cut

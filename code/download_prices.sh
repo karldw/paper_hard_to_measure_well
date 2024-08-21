@@ -19,15 +19,15 @@
 set -eu -o pipefail
 
 code_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-eia_dir="$code_dir/../data/eia"
+# eia_dir="$code_dir/../data/eia"
 fred_dir="$code_dir/../data/fred"
 
-cd "$eia_dir"
-curl --remote-name-all \
-    --url "https://www.eia.gov/dnav/ng/xls/NG_PRI_FUT_S1_D.xls" \
-    --url "https://www.eia.gov/dnav/ng/xls/NG_PROD_WELLS_S1_A.xls" \
-    --url "https://www.eia.gov/dnav/ng/xls/NG_PROD_OILWELLS_S1_A.xls" \
-    --url "https://www.eia.gov/dnav/ng/xls/NG_PROD_SUM_A_EPG0_VGM_MMCF_M.xls"
+# cd "$eia_dir"
+# curl --remote-name-all \
+#     --url "https://www.eia.gov/dnav/ng/xls/NG_PRI_FUT_S1_D.xls" \
+#     --url "https://www.eia.gov/dnav/ng/xls/NG_PROD_WELLS_S1_A.xls" \
+#     --url "https://www.eia.gov/dnav/ng/xls/NG_PROD_OILWELLS_S1_A.xls" \
+#     --url "https://www.eia.gov/dnav/ng/xls/NG_PROD_SUM_A_EPG0_VGM_MMCF_M.xls"
 
 cd "$fred_dir"
 curl --remote-name-all \

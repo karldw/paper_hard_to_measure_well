@@ -23,7 +23,7 @@ workflow._rerun_triggers = frozenset({"mtime", "input", "param"})
 # the thread count; that's up the the called program.
 
 # There's probably a clever way to write this snakemake rule, but this works.
-LATEX_CMD = "latexmk -norc -pdflua -cd -bibtex-cond1 -silent {input.tex}"
+LATEX_CMD = "latexmk -pdflua -cd -bibtex-cond1 -silent {input.tex}"
 TEX_FRAGMENTS = Path("output/tex_fragments")
 INDIVIDUAL_FIGS = Path("output/individual_figures")
 SNAKEMAKE_FLAGS = Path("scratch/snakemake_flags")
@@ -52,7 +52,7 @@ RE_AUDIT_tauT = f'({"|".join([tau + "-" + T for tau in ("low", "med", "high") fo
 # If using a container, a reasonable one might be:
 # container: "docker://condaforge/mambaforge:22.9.0-3"
 
-# Suggestion for running (though for some reason, with script this doesn't always use the conda environments? YMMV)
+# Suggestion for running (though, note that this will not use an alias for snakemake, if you have one set)
 # script --quiet --return --log-out "run_$(date --iso-8601).log" --append --command "ionice -c3 nice -n19 snakemake --cores 8"
 # less --RAW-CONTROL-CHARS --chop-long-lines "$(ls -1 --sort=time *.log | head --lines 1)"
 
@@ -86,7 +86,8 @@ if toolbox_available_but_unused():
 rule all:
     input:
         "output/paper.pdf",
-        # "output/all_figures.pdf",
+        "output/single_dir_submission_files/paper.pdf",
+        "data/replication/replication_public.zip",
 
 
 rule generate_di_parquet_files:
@@ -137,6 +138,7 @@ rule match_jpl_measurements:
         omara_2018 = "data/studies/omara_etal_2018/Omara_etal_SI_tables.csv",
         duren_2019_plumes = "data/studies/duren_etal_2019/Plume_list_20191031.csv",
         duren_2019_sites = "data/studies/duren_etal_2019/41586_2019_1720_MOESM3_ESM.xlsx",
+        duren_2019_flight_lines = "data/studies/duren_etal_2019/AVIRIS-NG Flight Lines - AVIRIS-NG Flight Lines.csv", # also used for frankenberg_etals
         lyon_etal_2016_measures = "data/studies/lyon_etal_2016/es6b00705_si_004.xlsx",
         lyon_etal_2016_locations = "data/studies/lyon_etal_2016/es6b00705_si_005.xlsx",
         frankenberg_etal_2016_sources = "data/studies/frankenberg_etal_2016/AVNG_sources_all2.xlsx",
@@ -152,7 +154,7 @@ rule match_jpl_measurements:
         lyon_etal_2016 = "data/generated/methane_measures/lyon_etal_2016.parquet",
         ground_studies = "data/generated/methane_measures/ground_studies.parquet",
         cleaned_matched_obs = "data/generated/methane_measures/matched_wells_all.parquet",
-        aviris_match_fraction_dropped = TEX_FRAGMENTS / "aviris_match_fraction_dropped.tex",
+        aviris_match_fraction_dropped = TEX_FRAGMENTS / "intext_aviris_match_fraction_dropped.tex",
     threads: 1
     resources:
         mem_mb = 4000 # 4 GB
@@ -171,7 +173,7 @@ rule group_into_dbscan_clusters:
         script = "code/group_into_dbscan_clusters.py",
     output:
         matched_wells_with_dbscan = "data/generated/methane_measures/matched_wells_with_dbscan.parquet",
-        map_dbscan_clusters = "graphics/map_dbscan_clusters.png",
+        # map_dbscan_clusters = "graphics/map_dbscan_clusters.png",
     threads: 1
     conda: "code/envs/py_scripts.yml"
     script:
@@ -186,11 +188,11 @@ rule plot_leak_distributions:
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/plot_leak_distributions.R",
     output:
-        "graphics/leak_comparison_sizes.pdf",
-        "graphics/leak_comparison_sizes_remote_only.pdf",
-        "graphics/leak_comparison_sizes_extra_titles.pdf",
-        "graphics/leak_comparison_fraction_with_detections.pdf",
-        "graphics/leak_comparison_fraction_with_detections_remote_only.pdf",
+        "graphics/figureA05_leak_comparison_sizes.pdf",
+        "graphics/figure02_leak_comparison_sizes_remote_only.pdf",
+        # "graphics/leak_comparison_sizes_extra_titles.pdf",
+        "graphics/figureA05_leak_comparison_fraction_with_detect.pdf",
+        "graphics/figure02_leak_comparison_fraction_with_detect_remote_only.pdf",
     threads: 1
     resources:
         mem_mb = 7000 # 7 GB
@@ -212,13 +214,14 @@ rule convert_inkscape:
 
 rule generate_code_cites_r:
     # Python code cites are manual.
-    # (There are also some manual tweaks to output/software_cites_r.bib to fix
-    # typos in the package citations.)
+    # (There are also some manual tweaks to convert software_cites_r_raw.bib software_cites_r.bib to fix
+    # typos in the package citations, replace unicode, and add keywords.)
     input:
         "code/generate_code_cites.R",
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
     output:
-        "output/software_cites_r.bib",
+        "output/software_cites_r_raw.bib",
+        "output/software_cites_generated.tex",
     conda: "code/envs/r_scripts.yml"
     script:
         "code/generate_code_cites.R"
@@ -251,22 +254,19 @@ rule summary_stats_tables:
     output:
         # Order matters for both of these (we'll index by position later)
         well_summary_stats = [
-            TEX_FRAGMENTS / "well_summary_stats_aviris_matched.tex",
-            TEX_FRAGMENTS / "well_summary_stats_lyon.tex",
-            TEX_FRAGMENTS / "well_summary_stats_all_2018.tex",
+            TEX_FRAGMENTS / "table01_well_summary_stats_aviris_matched.tex",
+            TEX_FRAGMENTS / "table01_well_summary_stats_lyon.tex",
+            TEX_FRAGMENTS / "table01_well_summary_stats_all_2018.tex",
         ],
-        covariate_balance_by_leak = TEX_FRAGMENTS / "well_covariate_balance.tex",
-        covariate_balance_by_flyover = TEX_FRAGMENTS / "well_covariate_balance_by_flyover.tex",
-        # TODO: num_rows_all_2018.tex is number of well pads in the well pad
-        # crosswalk, which we've cut down to only the states we're using.
-        # Either expand that or rename the file
+        covariate_balance_by_leak = TEX_FRAGMENTS / "tableA02_well_covariate_balance.tex",
+        # covariate_balance_by_flyover = TEX_FRAGMENTS / "well_covariate_balance_by_flyover.tex",
         obs_counts = [
-            TEX_FRAGMENTS / "num_rows_aviris_matched.tex",
-            TEX_FRAGMENTS / "num_rows_aviris_with_leak.tex",
-            TEX_FRAGMENTS / "num_rows_lyon.tex",
-            TEX_FRAGMENTS / "num_rows_all_2018.tex",
+            TEX_FRAGMENTS / "table01_num_rows_aviris_matched.tex",
+            TEX_FRAGMENTS / "table01_num_rows_aviris_with_leak.tex",
+            TEX_FRAGMENTS / "table01_num_rows_lyon.tex",
+            TEX_FRAGMENTS / "table01_num_rows_all_2018.tex",
         ],
-        percent_wells_with_gas = TEX_FRAGMENTS / "summ_percent_wells_nonzero_gas_in_us.tex",
+        percent_wells_with_gas = TEX_FRAGMENTS / "intext_summ_percent_wells_nonzero_gas_in_us.tex",
     conda: "code/envs/r_scripts.yml"
     script:
         "code/summary_stats.R"
@@ -392,6 +392,11 @@ rule stan_generate:
         prob_leak        = STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/prob_leak.parquet",
         stan_data_json   = STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/stan_data.json",
         prob_size_above_threshold = STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/prob_size_above_threshold.parquet",
+        # Note that some of the earlier models (the non cost_coef models) did
+        # not write out these cost_param_* files. If using those models,
+        # comment out these lines, or snakemake will be unhappy.
+        cost_param_alpha = STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/cost_param_alpha.parquet",
+        cost_param_A     = STAN_FITS / "{robustness_spec}{model_name}{prior_only}{bootstrap}{time_period}/cost_param_A.parquet",
     threads: stan_max_threads
     wildcard_constraints:
         robustness_spec = r"(main_spec|robustness[0-9]+)/",
@@ -415,8 +420,8 @@ rule plot_epa_emissions:
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/plot_epa_emissions.R"
     output:
-        ch4_2015 = "graphics/epa_emiss_2015_ch4.pdf",
-        ghg_2015 = "graphics/epa_emiss_2015_ghg.pdf",
+        ch4_2015 = "graphics/figure01_epa_emiss_2015_ch4.pdf",
+        # ghg_2015 = "graphics/epa_emiss_2015_ghg.pdf",
     conda: "code/envs/r_scripts.yml"
     script:
         "code/plot_epa_emissions.R"
@@ -439,7 +444,7 @@ rule pdf_to_grayscale:
         "{filename}_grayscale.pdf",
     shell:
         """
-        gs -o "{filename}_grayscale.pdf -sDEVICE=pdfwrite -sColorConversionStrategy=Gray -dProcessColorModel=/DeviceGray -dCompatibilityLevel=1.4 -dNOPAUSE -dBATCH {filename}"
+        gs -o "{filename}_grayscale.pdf -sDEVICE=pdfwrite -sColorConversionStrategy=Gray -dProcessColorModel=/DeviceGray -dAutoRotatePages=/None -dCompatibilityLevel=1.4 -dNOPAUSE -dBATCH {filename}"
         """
 
 
@@ -585,11 +590,12 @@ rule policy_robustness_plots:
         policy_output_helper_functions = "code/policy_output_helper_functions.r",
         robustness_spec_script = "code/model_data_prep_robustness.r",
     output:
-        plot_file_dwl = "graphics/robustness_audit_result_dwl_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.pdf",
-        plot_file_emiss = "graphics/robustness_audit_result_emission_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.pdf",
+        plot_file_dwl = "graphics/figureA11_robustness_audit_result_dwl_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.pdf",
+        plot_file_emiss = "graphics/figureA11_robustness_audit_result_emission_rule={audit_rule}_frac={audit_amount}_tauT={audit_tauT}.pdf",
+        # "graphics/robustness_well_count_vs_same_operator_count.pdf",
     threads: 1
     resources:
-        mem_mb = 4000,
+        mem_mb = 6000,
     wildcard_constraints:
         audit_rule = "(none|uniform|remote_low|remote_high|target_x|target_e_low|target_e_high)",
         audit_amount = "(0pct|1pct|10pct|optimal-100usd|optimal-600usd)",
@@ -697,9 +703,10 @@ rule policy_tables_generator:
         policy_output_helper_functions = "code/policy_output_helper_functions.r",
     output:
         tables = [
-            TEX_FRAGMENTS / "{outcome_type}_frac={audit_amount}_tauT={audit_tau}{audit_T}.tex",
+            TEX_FRAGMENTS / "{table_name}_{outcome_type}_frac={audit_amount}_tauT={audit_tau}{audit_T}.tex",
         ]
     wildcard_constraints:
+        table_name = "tableA?[0-9]+",
         outcome_type = "(expected_fee|outcome_dwl_emis)",
         audit_tau = r"(low|med|high|all)\-",
         audit_T = r"\d+(week|month)",
@@ -715,23 +722,24 @@ rule policy_tables_generator:
 rule policy_table_expected_fee_1pct:
     # Order doesn't matter
     input:
-        TEX_FRAGMENTS / "expected_fee_frac=1pct_tauT=high-1week.tex",
-        TEX_FRAGMENTS / "expected_fee_frac=1pct_tauT=med-1week.tex",
-        TEX_FRAGMENTS / "expected_fee_frac=1pct_tauT=low-1week.tex",
-        TEX_FRAGMENTS / "expected_fee_frac=1pct_tauT=high-3month.tex",
-        TEX_FRAGMENTS / "expected_fee_frac=1pct_tauT=med-3month.tex",
+        TEX_FRAGMENTS / "tableA04_expected_fee_frac=1pct_tauT=high-1week.tex",
+        TEX_FRAGMENTS / "tableA04_expected_fee_frac=1pct_tauT=med-1week.tex",
+        TEX_FRAGMENTS / "tableA04_expected_fee_frac=1pct_tauT=low-1week.tex",
+        TEX_FRAGMENTS / "tableA04_expected_fee_frac=1pct_tauT=low-3month.tex",
+        TEX_FRAGMENTS / "tableA04_expected_fee_frac=1pct_tauT=high-3month.tex",
+        TEX_FRAGMENTS / "tableA04_expected_fee_frac=1pct_tauT=med-3month.tex",
 
 
 rule policy_table_outcomes_dwl_emiss_1pct:
     # This isn't a real rule that gets run. We just use it as a cleaner input list.
     # Order doesn't matter
     input:
-        TEX_FRAGMENTS / "outcome_dwl_emis_frac=1pct_tauT=low-1week.tex",
-        TEX_FRAGMENTS / "outcome_dwl_emis_frac=1pct_tauT=med-1week.tex",
-        TEX_FRAGMENTS / "outcome_dwl_emis_frac=1pct_tauT=high-1week.tex",
-        TEX_FRAGMENTS / "outcome_dwl_emis_frac=1pct_tauT=med-3month.tex",
-        TEX_FRAGMENTS / "outcome_dwl_emis_frac=1pct_tauT=high-3month.tex",
-
+        TEX_FRAGMENTS / "tableA05_outcome_dwl_emis_frac=1pct_tauT=low-1week.tex",
+        TEX_FRAGMENTS / "tableA05_outcome_dwl_emis_frac=1pct_tauT=med-1week.tex",
+        TEX_FRAGMENTS / "tableA05_outcome_dwl_emis_frac=1pct_tauT=high-1week.tex",
+        TEX_FRAGMENTS / "tableA05_outcome_dwl_emis_frac=1pct_tauT=low-3month.tex",
+        TEX_FRAGMENTS / "tableA05_outcome_dwl_emis_frac=1pct_tauT=med-3month.tex",
+        TEX_FRAGMENTS / "tableA05_outcome_dwl_emis_frac=1pct_tauT=high-3month.tex",
 
 
 rule policy_snippets_generator:
@@ -752,7 +760,7 @@ rule policy_snippets_generator:
         # We end up running this multiple times per policy, since we want
         # different snippets. It's slightly slower, but means we don't end up
         # with a ton of extra files.
-        snippets = TEX_FRAGMENTS / "OUTCOME={outcome}_RULE={audit_rule}_FRAC={audit_amount}_tauT={audit_tauT}{CI}.tex",
+        snippets = TEX_FRAGMENTS / "intext_OUTCOME={outcome}_RULE={audit_rule}_FRAC={audit_amount}_tauT={audit_tauT}{CI}.tex",
     # log: "scratch/logs/policy_snippets/OUTCOME={outcome}_RULE={audit_rule}_FRAC={audit_amount}_tauT={audit_tauT}.log",
     wildcard_constraints:
         audit_rule = "(none|remote_low|remote_high|uniform|target_x|target_e_low|target_e_high)",
@@ -790,9 +798,9 @@ rule policy_graphs_generator:
         constants = "code/constants.json",
         policy_output_helper_functions = "code/policy_output_helper_functions.r"
     output:
-        plot_fee = "graphics/outcomes_fee_frac={audit_amount}.pdf",
-        plot_dwl_emis_ordinal = "graphics/outcomes_dwl_emis_frac={audit_amount}.pdf",
-        plot_dwl_emis_cardinal = "graphics/outcomes_dwl_emis_frac={audit_amount}_cardinal.pdf",
+        plot_fee = "graphics/figure04_outcomes_fee_frac={audit_amount}.pdf",
+        plot_dwl_emis_ordinal = "graphics/figure05_outcomes_dwl_emis_frac={audit_amount}.pdf",
+        plot_dwl_emis_cardinal = "graphics/figureA10_outcomes_dwl_emis_frac={audit_amount}_cardinal.pdf",
     wildcard_constraints:
         audit_amount="(0pct|1pct|10pct|optimal-100usd|optimal-600usd)",
     threads: 1
@@ -818,7 +826,7 @@ rule policy_snippets_generator_robustness:
         # We end up running this multiple times per policy, since we want
         # different snippets. It's slightly slower, but means we don't end up
         # with a ton of extra files.
-        snippets = TEX_FRAGMENTS / "{robustness_spec}OUTCOME={outcome}_RULE={audit_rule}_FRAC={audit_amount}_tauT={audit_tauT}{CI}.tex",
+        snippets = TEX_FRAGMENTS / "{robustness_spec}intext_OUTCOME={outcome}_RULE={audit_rule}_FRAC={audit_amount}_tauT={audit_tauT}{CI}.tex",
     # log: "scratch/logs/policy_snippets/OUTCOME={outcome}_RULE={audit_rule}_FRAC={audit_amount}_tauT={audit_tauT}.log",
     wildcard_constraints:
         # Note that here robustness_spec does not allow for main_spec.
@@ -842,39 +850,39 @@ rule policy_required_snippets:
     input:
         [TEX_FRAGMENTS / f for f in [
 
-        "OUTCOME=fee_p75_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=fee_p99_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "intext_OUTCOME=fee_p75_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "intext_OUTCOME=fee_p99_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
 
-        "OUTCOME=fee_mean_RULE=uniform_FRAC=1pct_tauT=med-1week.tex",
-        "OUTCOME=fee_mean_RULE=target_x_FRAC=1pct_tauT=med-1week.tex",
-        "OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
-        "OUTCOME=emission_tonCO2e_RULE=none_FRAC=0pct_tauT=high-3month.tex",
+        "intext_OUTCOME=fee_mean_RULE=uniform_FRAC=1pct_tauT=med-1week.tex",
+        "intext_OUTCOME=fee_mean_RULE=target_x_FRAC=1pct_tauT=med-1week.tex",
+        "intext_OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
+        "intext_OUTCOME=emission_tonCO2e_RULE=none_FRAC=0pct_tauT=high-3month.tex",
 
-        "OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=2298.tex",
-        "OUTCOME=emission_reduce_pct_RULE=target_e_high_FRAC=1pct_tauT=2298.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=2298.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=target_x_FRAC=1pct_tauT=med-1week.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=uniform_FRAC=1pct_tauT=med-1week.tex",
-        "OUTCOME=net_private_cost_per_mcf_pct_price_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
+        "intext_OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=2298.tex",
+        "intext_OUTCOME=emission_reduce_pct_RULE=target_e_high_FRAC=1pct_tauT=2298.tex",
+        "intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=2298.tex",
+        "intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
+        "intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
+        "intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
+        "intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_x_FRAC=1pct_tauT=med-1week.tex",
+        "intext_OUTCOME=emission_reduce_tonCO2e_RULE=uniform_FRAC=1pct_tauT=med-1week.tex",
+        "intext_OUTCOME=net_private_cost_per_mcf_pct_price_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
 
-        "OUTCOME=welfare_gain_pct_RULE=uniform_FRAC=1pct_tauT=med-1week.tex",
-        "OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=med-1week.tex",
-        "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
-        "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
-        "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
-        "OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=low-1week.tex",
-        "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=low-1week.tex",
-        "OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=high-3month.tex",
+        "intext_OUTCOME=welfare_gain_pct_RULE=uniform_FRAC=1pct_tauT=med-1week.tex",
+        "intext_OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=med-1week.tex",
+        "intext_OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
+        "intext_OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
+        "intext_OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        "intext_OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
+        "intext_OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=low-1week.tex",
+        "intext_OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=low-1week.tex",
+        "intext_OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=high-3month.tex",
         # Note: these vs_uniform ones also read the "uniform" rule output.
         # We could have Snakemake track and require this, but haven't.
-        "OUTCOME=welfare_gain_pct_vs_uniform_RULE=target_x_FRAC=1pct_tauT=low-1week.tex",
-        "OUTCOME=welfare_gain_pct_vs_uniform_RULE=target_x_FRAC=1pct_tauT=high-3month.tex",
-        "OUTCOME=welfare_pct_of_target_e_low_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=welfare_pct_of_target_e_low_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
+        "intext_OUTCOME=welfare_gain_pct_vs_uniform_RULE=target_x_FRAC=1pct_tauT=low-1week.tex",
+        "intext_OUTCOME=welfare_gain_pct_vs_uniform_RULE=target_x_FRAC=1pct_tauT=high-3month.tex",
+        "intext_OUTCOME=welfare_pct_of_target_e_low_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        "intext_OUTCOME=welfare_pct_of_target_e_low_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex",
         ]]
 
 
@@ -884,29 +892,29 @@ rule policy_required_snippets_robustness:
         [TEX_FRAGMENTS / f"robustness{idx}" / f
         for idx in range(1, 53)
         for f in [
-        # "OUTCOME=fee_p10_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=fee_p10_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-        # "OUTCOME=fee_p90_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=fee_p90_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-        # "OUTCOME=fee_mean_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
-        # "OUTCOME=fee_mean_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-        # "OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=2500.tex",
-        # "OUTCOME=emission_tonCO2e_RULE=none_FRAC=0pct_tauT=high-3month.tex",
-        # "OUTCOME=emission_reduce_pct_RULE=target_e_high_FRAC=1pct_tauT=2500.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-        # "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
-        # "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
-        "OUTCOME=emission_reduce_tonCO2e_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
-        # "OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=2500.tex",
-        # "OUTCOME=net_private_cost_per_mcf_pct_price_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
-        # "OUTCOME=welfare_gain_pct_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
-        # "OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
-        # "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
-        # "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
-        "OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        # "intext_OUTCOME=fee_p10_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "intext_OUTCOME=fee_p10_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        # "intext_OUTCOME=fee_p90_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "intext_OUTCOME=fee_p90_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        # "intext_OUTCOME=fee_mean_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
+        # "intext_OUTCOME=fee_mean_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "intext_OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        # "intext_OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=2500.tex",
+        # "intext_OUTCOME=emission_tonCO2e_RULE=none_FRAC=0pct_tauT=high-3month.tex",
+        # "intext_OUTCOME=emission_reduce_pct_RULE=target_e_high_FRAC=1pct_tauT=2500.tex",
+        "intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        # "intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
+        # "intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
+        "intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
+        "intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        "intext_OUTCOME=emission_reduce_tonCO2e_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
+        # "intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=2500.tex",
+        # "intext_OUTCOME=net_private_cost_per_mcf_pct_price_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
+        # "intext_OUTCOME=welfare_gain_pct_RULE=uniform_FRAC=1pct_tauT=med-3month.tex",
+        # "intext_OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=med-3month.tex",
+        # "intext_OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-1week.tex",
+        # "intext_OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex",
+        "intext_OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex",
         ]
         ]
 
@@ -953,13 +961,14 @@ rule output_model_fits:
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/output_model_fits.R",
     output:
-        model_prob_leak_plot = "graphics/model_prob_leak_plot.pdf",
-        model_cost_vs_q_plot = "graphics/model_cost_vs_q_plot.pdf",
-        model_cost_vs_q_dwl_plot = "graphics/model_cost_vs_q_dwl_plot.pdf",
-        model_coef = TEX_FRAGMENTS / "model_parameters.tex",
-        model_coef_footer  = TEX_FRAGMENTS / "model_parameters_footer.tex",
-        model_cost_alpha_histogram = "graphics/model_cost_alpha_histogram.pdf",
-        model_prob_size_above_threshold_histogram = "graphics/model_prob_size_above_threshold_histogram.pdf",
+        # Note - if uncommenting, also need to edit code/output_model_fits.R
+        # model_prob_leak_plot = "graphics/model_prob_leak_plot.pdf",
+        # model_cost_vs_q_plot = "graphics/model_cost_vs_q_plot.pdf",
+        model_cost_vs_q_dwl_plot = "graphics/figure03_model_cost_vs_q_dwl_plot.pdf",
+        model_coef = TEX_FRAGMENTS / "tableA03_model_parameters.tex",
+        model_coef_footer  = TEX_FRAGMENTS / "tableA03_model_parameters_footer.tex",
+        model_cost_alpha_histogram = "graphics/figureA09_model_cost_alpha_histogram.pdf",
+        # model_prob_size_above_threshold_histogram = "graphics/model_prob_size_above_threshold_histogram.pdf",
     threads: 1
     resources:
         mem_mb = 13000 # 13 GB
@@ -994,8 +1003,8 @@ rule plot_natural_gas_prices:
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/plot_natural_gas_prices.R",
     output:
-        nat_gas_price_timeseries = "graphics/nat_gas_price_timeseries.pdf",
-        nat_gas_price_histogram  = "graphics/nat_gas_price_histogram.pdf",
+        nat_gas_price_timeseries = "graphics/figureA07_nat_gas_price_timeseries.pdf",
+        nat_gas_price_histogram  = "graphics/figureA08_nat_gas_price_histogram.pdf",
     threads: 1
     resources:
         mem_mb = 2000,
@@ -1012,7 +1021,7 @@ rule bea_industry_facts:
         r_lib = SNAKEMAKE_FLAGS / "setup_r_library",
         script = "code/bea_industry_facts.R",
     output:
-        net_value = TEX_FRAGMENTS / "oil_gas_industry_net_value.tex",
+        net_value = TEX_FRAGMENTS / "intext_oil_gas_industry_net_value.tex",
     threads: 1
     resources:
         mem_mb = 1800
@@ -1038,49 +1047,44 @@ rule plot_well_operator_stats:
         "code/plot_well_operator_stats.R"
 
 
-rule zip_for_replication:
+rule sha256_sum_drillinginfo:
     input:
-        "code/zip_for_replication.py",
+        rules.generate_di_parquet_files.input,
     output:
-        public_zip = "data/replication/replication_public.zip",
-        drillinginfo_zip = "data/replication/replication_drillinginfo.zip",
-    threads: 1
+        "data/drillinginfo/SHA256SUM",
     conda: None
-    script:
-        "code/zip_for_replication.py"
+    shell:
+        "sha256sum {input} > {output}"
 
 
-# Outputs, using the above as inputs.
+# This is just a container rule. It lists a sufficient set of files to ensure the
+# necessary outputs get created, but does not list every file that gets created.
 rule figures:
     input:
-        tex = "output/all_figures.tex",
         includes = [
-            "graphics/leak_comparison_sizes.pdf",
-            "graphics/game_tree_audit_covariates.tikz",
-            "graphics/game_tree_audit_leak.tikz",
-            "graphics/game_tree_audit_leak_censor.tikz",
-            "graphics/nat_gas_price_timeseries.pdf",
+            "graphics/figureA01_game_tree_audit_covariates.tikz",
+            "graphics/figureA02_game_tree_audit_leak.tikz",
+            "graphics/figureA03_game_tree_audit_leak_censor.tikz",
+            "graphics/figureA07_nat_gas_price_timeseries.pdf",
+            "graphics/figureA08_nat_gas_price_histogram.pdf",
             rules.summary_stats_tables.output,
+            rules.plot_leak_distributions.output,
             # rules.outcomes_analysis_outputs.output,
             # "graphics/audit_shadow_price_plot.pdf",
-            "graphics/aggregate_abatement_curve.pdf",
-            "graphics/audit_gains_rel_plot_dwl_frac=1pct.pdf",
-            "graphics/audit_gains_rel_plot_emis_frac=1pct.pdf",
+            # "graphics/aggregate_abatement_curve.pdf",
+            # "graphics/audit_gains_rel_plot_dwl_frac=1pct.pdf",
+            # "graphics/audit_gains_rel_plot_emis_frac=1pct.pdf",
             rules.policy_table_expected_fee_1pct.input,
             rules.policy_table_outcomes_dwl_emiss_1pct.input,
             # rules.policy_table_policy_outcomes_frac_1pct_T_3month.output,
             rules.output_model_fits.output,
             rules.plot_epa_emissions.output,
-            rules.plot_well_operator_stats.output,
-            "graphics/robustness_audit_result_dwl_rule=target_e_high_frac=1pct_tauT=med-3month.pdf",
-            "graphics/robustness_audit_result_emission_rule=target_e_high_frac=1pct_tauT=med-3month.pdf",
-            "graphics/outcomes_dwl_emis_frac=1pct.pdf",
-            "graphics/outcomes_fee_frac=1pct.pdf",
+            # rules.plot_well_operator_stats.output,
+            "graphics/figureA11_robustness_audit_result_dwl_rule=target_e_high_frac=1pct_tauT=med-3month.pdf",
+            "graphics/figureA11_robustness_audit_result_emission_rule=target_e_high_frac=1pct_tauT=med-3month.pdf",
+            "graphics/figure04_outcomes_fee_frac=1pct.pdf",
+            "graphics/figure05_outcomes_dwl_emis_frac=1pct.pdf",
         ],
-    output:
-        "output/all_figures.pdf",
-    shell:
-        LATEX_CMD
 
 
 rule slides:
@@ -1093,6 +1097,7 @@ rule slides:
         ],
     output:
         "output/2020-12-07_EI_RIP_slides.pdf",
+    conda: None
     shell:
         LATEX_CMD
 
@@ -1100,25 +1105,84 @@ rule slides:
 rule paper:
     input:
         tex = "output/paper.tex",
+        appendix = "output/online_appendix.tex",
+        preamble = "output/paper_appendix_shared_preamble.tex",
         includes = rules.figures.input.includes,
         snippets = rules.policy_required_snippets.input,
         # snippets_robust = rules.policy_required_snippets_robustness.input,
-        snippets2 = TEX_FRAGMENTS / "oil_gas_industry_net_value.tex",
+        snippets2 = [
+            TEX_FRAGMENTS / "intext_oil_gas_industry_net_value.tex",
+            TEX_FRAGMENTS / "intext_aviris_match_fraction_dropped.tex",
+        ],
         bibs = [
             "output/refs.bib",
+            "output/data_cites.bib",
             "output/methane_measurement_refs.bib",
             "output/software_cites_r.bib",
             "output/software_cites_python.bib",
+            "output/software_cites_generated.tex",
         ],
         misc = [
             "output/define_acronyms.tex",
-            "graphics/marks_2018_fig4a.png",
-            "graphics/natural_gas_leakage_percentages_marks_fig1.png",
-            "graphics/frankenberg_etal_2016_fig4-4.jpg",
-            "graphics/frankenberg_etal_2016_fig1.jpg",
+            "graphics/figureA04_natural_gas_leakage_percentages_marks_fig1.png",
+            "graphics/figureA06_frankenberg_etal_2016_fig1.jpg",
+            "graphics/figureA06_frankenberg_etal_2016_fig4-4.jpg",
             "graphics/ORCIDiD_iconvector.pdf",
         ],
+
+
+rule journal_pub:
+    """Move all the latex files around to be in a format the journal is happy with."""
+    input:
+        rules.paper.input,
+        "code/journal_pub.R",
     output:
+        # A bunch of other files in the same directory too
+        "output/single_dir_submission_files/paper.tex",
+    conda: "code/envs/r_scripts.yml"
+    script:
+        "code/journal_pub.R"
+
+
+rule output_docs:
+    input:
+        # Note that rules.paper.input includes all the figures/tables already.
+        rules.paper.input,
+        tex1 = "output/single_dir_submission_files/paper.tex",
+        tex2 = "output/paper.tex",
+        tex3 = "output/online_appendix.tex",
+    output:
+        "output/single_dir_submission_files/paper.pdf",
+        "output/online_appendix.pdf",
         "output/paper.pdf",
+    conda: None
     shell:
-        LATEX_CMD
+        # Note that the latex engine (pdfxe) should match the sub_doc_options in the .latexmkrc file.
+        """
+        latexmk -gg -pdfxe -cd -bibtex-cond1 -silent {input.tex1}
+        latexmk -gg -pdfxe -cd -bibtex-cond1 -silent {input.tex2}
+        latexmk -gg -pdfxe -cd -bibtex-cond1 -silent {input.tex3}
+        latexmk -cd -c {input.tex1}
+        latexmk -cd -c {input.tex2}
+        latexmk -cd -c {input.tex3}
+        """
+
+
+rule zip_for_replication:
+    input:
+        "data/drillinginfo/SHA256SUM",
+        "code/zip_for_replication.py",
+        rules.output_docs.input, # includes the main paper as a dep
+        # Make sure we capture any changes:
+        "README.md",
+        "Snakefile",
+        Path("code").iterdir(),
+        Path("code/envs").iterdir(),
+    output:
+        public_zip = "data/replication/replication_public.zip",
+        drillinginfo_zip = "data/replication/replication_drillinginfo.zip",
+    threads: 1
+    # The script only uses base python, but still use the env for consistency
+    conda: "code/envs/py_scripts.yml"
+    script:
+        "code/zip_for_replication.py"

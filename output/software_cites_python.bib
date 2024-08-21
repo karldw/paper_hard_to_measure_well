@@ -1,7 +1,8 @@
 
 % Arrow is covered by the R side.
+% These entries are `\nocite{}`-ed manually in the manuscript. Make edits there if you add any here.
 
-@article{numpy,
+@article{python-numpy,
   doi = {10.1109/mcse.2011.37},
   year = {2011},
   month = {3},
@@ -9,38 +10,42 @@
   volume = {13},
   number = {2},
   pages = {22--30},
-  author = {St{\'{e}}fan van der Walt and S Chris Colbert and Gaël Varoquaux},
+  author = {St\'{e}fan van der Walt and S Chris Colbert and Ga\"{e}l Varoquaux},
   title = {The {NumPy} Array: A Structure for Efficient Numerical Computation},
-  journal = {Computing in Science {\&} Engineering}
+  journal = {Computing in Science {\&} Engineering},
+  keywords = {code},
 }
 
-@inproceedings{pandas,
- title={Data structures for statistical computing in python},
- author={McKinney, Wes and others},
- booktitle={Proceedings of the 9th Python in Science Conference},
- volume={445},
- pages={51--56},
- year={2010},
- organization={Austin, TX}
+@inproceedings{python-pandas,
+  title = {Data structures for statistical computing in python},
+  author = {McKinney, Wes and others},
+  booktitle = {Proceedings of the 9th Python in Science Conference},
+  volume = {445},
+  pages = {51--56},
+  year = {2010},
+  organization = {Austin, TX},
+  keywords = {code},
 }
 
-@book{python3,
- author = {Van Rossum, Guido and Drake, Fred L.},
- title = {Python 3 Reference Manual},
- year = {2009},
- isbn = {1441412697},
- publisher = {CreateSpace},
- address = {Scotts Valley, CA}
+@book{python-python3,
+  author = {Van Rossum, Guido and Drake, Fred L.},
+  title = {Python 3 Reference Manual},
+  year = {2009},
+  isbn = {1441412697},
+  publisher = {CreateSpace},
+  address = {Scotts Valley, CA},
+  keywords = {code},
 }
 
-@Manual{black,
-  author={Langa, Łukasz and others},
-  url={https://black.readthedocs.io},
-  title={Black: The uncompromising code formatter},
-  year={2020}
+@Manual{python-black,
+  author = {Langa, {\L}ukasz and others},
+  url = {https://black.readthedocs.io},
+  title = {Black: The uncompromising code formatter},
+  year = {2020},
+  keywords = {code},
 }
 
-@article{snakemake,
+@article{python-snakemake,
   doi = {10.1093/bioinformatics/bty350},
   year = {2018},
   month = {5},
@@ -50,18 +55,20 @@
   pages = {3600--3600},
   author = {Johannes K\"{o}ster and Sven Rahmann},
   title = {Snakemake{\textemdash}a scalable bioinformatics workflow engine},
-  journal = {Bioinformatics}
+  journal = {Bioinformatics},
+  keywords = {code},
 }
 
-@Manual{cmdstan,
+@Manual{python-cmdstan,
   url = {https://mc-stan.org/users/interfaces/cmdstan},
   author = {{Stan Development Team}},
   title = {CmdStan: The Shell Interface to Stan},
   number = {2.32.2},
-  date = {2023-05-15}
+  date = {2023-05-15},
+  keywords = {code},
 }
 
-@article{Ipopt,
+@article{python-Ipopt,
   doi = {10.1007/s10107-004-0559-y},
   date = {2005-04-28},
   publisher = {Springer Science and Business Media {LLC}},
@@ -70,40 +77,42 @@
   pages = {25--57},
   author = {Andreas W\"{a}chter and Lorenz T. Biegler},
   title = {On the implementation of an interior-point filter line-search algorithm for large-scale nonlinear programming},
-  journal = {Mathematical Programming}
+  journal = {Mathematical Programming},
+  keywords = {code},
 }
 
-@article{scikit-learn,
- title={Scikit-learn: Machine Learning in {P}ython},
- author={Pedregosa, F. and Varoquaux, G. and Gramfort, A. and Michel, V.
-         and Thirion, B. and Grisel, O. and Blondel, M. and Prettenhofer, P.
-         and Weiss, R. and Dubourg, V. and Vanderplas, J. and Passos, A. and
-         Cournapeau, D. and Brucher, M. and Perrot, M. and Duchesnay, E.},
- journal={Journal of Machine Learning Research},
- volume={12},
- pages={2825--2830},
- year={2011}
+@article{python-scikit-learn,
+  title = {Scikit-learn: Machine Learning in {P}ython},
+  author = {Pedregosa, F. and Varoquaux, G. and Gramfort, A. and Michel, V.
+    and Thirion, B. and Grisel, O. and Blondel, M. and Prettenhofer, P.
+    and Weiss, R. and Dubourg, V. and Vanderplas, J. and Passos, A. and
+    Cournapeau, D. and Brucher, M. and Perrot, M. and Duchesnay, E.},
+  journal = {Journal of Machine Learning Research},
+  volume = {12},
+  pages = {2825--2830},
+  year = {2011},
+  keywords = {code},
 }
 
-@article{SciPy-NMeth,
-  author  = {Virtanen, Pauli and Gommers, Ralf and Oliphant, Travis E. and
-            Haberland, Matt and Reddy, Tyler and Cournapeau, David and
-            Burovski, Evgeni and Peterson, Pearu and Weckesser, Warren and
-            Bright, Jonathan and {van der Walt}, St{\'e}fan J. and
-            Brett, Matthew and Wilson, Joshua and Millman, K. Jarrod and
-            Mayorov, Nikolay and Nelson, Andrew R. J. and Jones, Eric and
-            Kern, Robert and Larson, Eric and Carey, C J and
-            Polat, {\.I}lhan and Feng, Yu and Moore, Eric W. and
-            {VanderPlas}, Jake and Laxalde, Denis and Perktold, Josef and
-            Cimrman, Robert and Henriksen, Ian and Quintero, E. A. and
-            Harris, Charles R. and Archibald, Anne M. and
-            Ribeiro, Ant{\^o}nio H. and Pedregosa, Fabian and
-            {van Mulbregt}, Paul and {SciPy 1.0 Contributors}},
-  title   = {{{SciPy} 1.0: Fundamental Algorithms for Scientific
-            Computing in Python}},
+@article{python-SciPy-NMeth,
+  author = {Virtanen, Pauli and Gommers, Ralf and Oliphant, Travis E. and
+    Haberland, Matt and Reddy, Tyler and Cournapeau, David and
+    Burovski, Evgeni and Peterson, Pearu and Weckesser, Warren and
+    Bright, Jonathan and {van der Walt}, St{\'e}fan J. and
+    Brett, Matthew and Wilson, Joshua and Millman, K. Jarrod and
+    Mayorov, Nikolay and Nelson, Andrew R. J. and Jones, Eric and
+    Kern, Robert and Larson, Eric and Carey, C J and
+    Polat, {\.I}lhan and Feng, Yu and Moore, Eric W. and
+    {VanderPlas}, Jake and Laxalde, Denis and Perktold, Josef and
+    Cimrman, Robert and Henriksen, Ian and Quintero, E. A. and
+    Harris, Charles R. and Archibald, Anne M. and
+    Ribeiro, Ant{\^o}nio H. and Pedregosa, Fabian and
+    {van Mulbregt}, Paul and {SciPy 1.0 Contributors}},
+  title = {{{SciPy} 1.0: Fundamental Algorithms for Scientific Computing in Python}},
   journal = {Nature Methods},
-  year    = {2020},
-  volume  = {17},
-  pages   = {261--272},
-  doi     = {10.1038/s41592-019-0686-2},
+  year = {2020},
+  volume = {17},
+  pages = {261--272},
+  doi = {10.1038/s41592-019-0686-2},
+  keywords = {code},
 }

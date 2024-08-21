@@ -78,7 +78,7 @@ if (!exists("snakemake")) {
 }
 
 source(snakemake@input[["policy_output_helper_functions"]])
-options(scipen = 99, mc.cores = snakemake@threads, SOURCE_DATE_EPOCH=0)
+options(scipen = 99, mc.cores = snakemake@threads)
 memory_limit(snakemake@resources[["mem_mb"]])
 
 
@@ -117,6 +117,7 @@ add_shared_plot_elements <- function(plt) {
       shape = "",
       color = "",
       fill = "",
+      size = "",
       x = "Fee when found leaking (τ × T)",
     )
   out
@@ -154,7 +155,11 @@ make_fee_graph <- function(results_df, wildcards, plot_file) {
       shape = policy_details,
     )) %>%
     add_shared_plot_elements() +
-    ggplot2::geom_point(ggplot2::aes(y=fee_per_kg_med_mean / !! SCM_PER_KG), position = ggplot2::position_dodge2(width=0.9)) +
+    ggplot2::geom_point(
+      ggplot2::aes(y=fee_per_kg_med_mean / !! SCM_PER_KG, size=policy_details),
+      position = ggplot2::position_dodge2(width=0.9),
+    ) +
+    ggplot2::scale_size_manual(values = c(2.5, 2.5, 2.5, 3.5, 2.5, 2.5)) +
     ggplot2::geom_boxplot(
       stat="identity",
       # Note: for ggplot2 >= 3.4.0, would use `linewidth` instead of `size`
@@ -232,13 +237,18 @@ make_emission_dwl_graph <- function(results_df, wildcards, plot_file, x_axis_for
     add_shared_plot_elements() +
     # Use geom_point and geom_errorbar(..., width=0) rather than geom_pointrange
     # so that I can adjust the line width of the error bar and the point separately
-    ggplot2::geom_point(position=ggplot2::position_dodge(width=dodge_width), size=pointsize) +
+    ggplot2::geom_point(
+      ggplot2::aes(size=policy_details),
+      position=ggplot2::position_dodge(width=dodge_width)
+    ) +
     ggplot2::geom_errorbar(
       position=ggplot2::position_dodge(width=dodge_width),
       width = 0,
       # Note: for ggplot2 >= 3.4.0, would use `linewidth` instead of `size`
       size=pointsize / 3
     ) +
+    ggplot2::scale_size_manual(values = c(1, 1, 1, 1.2, 1, 1)) +
+    # ggplot2::guides(shape = ggplot2::guide_legend(override.aes = list(size=2))) +
     ggplot2::facet_grid(
       rows = dplyr::vars(statistic_type),
       # scales = "free_y"

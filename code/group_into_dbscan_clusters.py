@@ -133,6 +133,6 @@ if __name__ == "__main__":
     df_output.drop(columns=["x_coord", "y_coord"]).to_parquet(out_file)
     assert orig_varnames.issubset(set(df_output.columns))
 
-    # Optional and untested:
+    # Optional:
     # plot_before_clustering(df_input, snakemake.output["plot_well_maps"])
-    plot_after_clustering(df_output, snakemake.output["map_dbscan_clusters"])
+    # plot_after_clustering(df_output, snakemake.output["map_dbscan_clusters"])

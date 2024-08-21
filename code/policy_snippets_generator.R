@@ -23,7 +23,7 @@ parse_inputs <- function(filename, wildcards) {
   filename <- basename(filename)
   stopifnot(
     length(filename) == 1,
-    startsWith(filename, "OUTCOME"),
+    startsWith(filename, "intext_OUTCOME"),
     endsWith(filename, ".tex"),
     nrow(df) >= 1
   )

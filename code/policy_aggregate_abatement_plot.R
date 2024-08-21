@@ -72,7 +72,7 @@ plot_aggregate_abatement_curve <- function(results_df, plot_file) {
       title="Aggregate abatement supply curve"
     )
 
-  save_plot(plt, plot_file, reproducible=TRUE)
+  save_plot(plt, plot_file)
 }
 
 # Note: here we don't need the extra processing that happens in read_policy_summaries

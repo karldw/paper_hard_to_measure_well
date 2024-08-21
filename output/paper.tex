@@ -1,280 +1,21 @@
-% !TeX encoding = utf8
-% !TeX spellcheck = en_US
-% !BIB program = biber
-% !TeX program = lualatex
+%!TEX TS-program = xelatex
+%!TEX program = xelatex
+%!TEX encoding = utf8
+%!TEX spellcheck = en_US
+%!BIB program = bibtex
 
+\input{paper_appendix_shared_preamble.tex}
 
-\documentclass[12pt,oneside,letterpaper]{article}
+% Make references to the online appendix work
+% Note that JAERE does not support this - so the toggle is off
+\togglefalse{usexr}
+\iftoggle{usexr}{%
+  \usepackage{xr}
+  \myexternaldocument{online_appendix}
+}{}
 
-\nonstopmode
-
-% Set a better default text area (note: don't use this and geometry at the same time.)
-% \usepackage[DIV=10]{typearea}
-\usepackage[margin=1.5in]{geometry}
-\usepackage{fontspec}
-\defaultfontfeatures{Ligatures=TeX}
-\usepackage{amsmath}  % must be loaded before unicode-math
-\usepackage{amsthm}
-% Libertinus code suggested by https://tex.stackexchange.com/a/364502
-\usepackage[
-    math-style=ISO,
-    bold-style=ISO,
-    partial=upright,
-    nabla=upright
-]{unicode-math}
-\setmainfont[Numbers={OldStyle, Proportional}]{Libertinus Serif}
-\setsansfont{Libertinus Sans}
-\setmathfont{Libertinus Math}
-\newfontface\titlefont{Libertinus Serif Display}[Numbers={OldStyle, Proportional}, Fractions=Off,Ligatures=Common]
-\newfontface\textfracfont{Libertinus Serif}[Numbers={OldStyle, Proportional}, Fractions=On]
-\newfontface\tabularoldstylefont{Libertinus Serif}[Numbers={OldStyle, Monospaced}, Fractions=Off]
-
-\usepackage{csquotes}
-\usepackage[final]{microtype}
-\frenchspacing{}
-\microtypecontext{spacing=french}
-
-% Don't do ligatures in compound words:
-\usepackage[english]{selnolig}
-
-\usepackage{ragged2e}  % allow for ragged-right with hyphenation
-
-
-% Format sections:
-% \titleformat{command}[shape]{format}{label}{sep}{before-code}[after-code]
-\usepackage[it, small]{titlesec}
-
-% Format itemized lists
-\usepackage{enumitem}
-\setlist{nolistsep} % more aggressive than noitemsep
-
-% allow page breaks in math equations
-\allowdisplaybreaks
-
-\newcounter{axiomcounter}
-\newcounter{theoremcounter}
-\newcounter{examplecounter}
-\newcounter{propositioncounter}
-\newcounter{lemmacounter}
-\newcounter{corollarycounter}
-
-% Make it easier to change the spacing around these math environments
-\newlength{\premathenv}
-\setlength{\premathenv}{0.2\baselineskip}
-\newlength{\withinmathenv}
-\setlength{\withinmathenv}{0\baselineskip}
-\newlength{\postmathenv}
-\setlength{\postmathenv}{\premathenv} % default to the same, but could change.
-
-
-\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
-\newcommand{\length}[1]{\left\lvert#1\right\rvert}
-
-\theoremstyle{definition}
-\newenvironment{theorem}[1]{%
-\vspace{\premathenv}%
-\refstepcounter{theoremcounter}%
-\noindent\textbf{Theorem \thetheoremcounter}
-{#1}
-\vspace{\withinmathenv}
-}{% end of beginning of environment, beginning of end of env
-\vspace{\postmathenv}%
-}
-\newenvironment{proposition}[1]{%
-\vspace{\premathenv}%
-\refstepcounter{propositioncounter}%
-\noindent\textbf{Proposition \thepropositioncounter}
-{#1}
-\vspace{\withinmathenv}
-}{% end of beginning of environment, beginning of end of env
-\vspace{\postmathenv}%%
-}
-\newenvironment{lemma}[1]{%
-\vspace{\premathenv}%
-\refstepcounter{lemmacounter}%
-\noindent\textbf{Lemma \thelemmacounter}
-{#1}
-\vspace{\withinmathenv}
-}{% end of beginning of environment, beginning of end of env
-\vspace{\postmathenv}%
-}
-\newenvironment{corollary}[1]{%
-\vspace{\premathenv}%
-\refstepcounter{corollarycounter}%
-\noindent\textbf{Corollary \thecorollarycounter}
-{#1}
-\vspace{\withinmathenv}
-}{% end of beginning of environment, beginning of end of env
-\vspace{\postmathenv}%
-}
-\newenvironment{axiom}[1]{%
-\vspace{\premathenv}%
-\refstepcounter{axiomcounter}%
-\noindent\textbf{Axiom \theaxiomcounter}
-{#1}
-\vspace{\withinmathenv}
-}{% end of beginning of environment, beginning of end of env
-\vspace{\postmathenv}%
-}
-\newenvironment{example}[1]{%
-\vspace{\premathenv}%
-\refstepcounter{examplecounter}%
-\noindent\textbf{EXAMPLE \theexamplecounter}
-{#1}
-\vspace{\withinmathenv}
-}{% end of beginning of environment, beginning of end of env
-\vspace{\postmathenv}%
-}
-
-\renewenvironment{proof}{%
-\vspace{\premathenv}% previously \vspace{1\baselineskip}
-\noindent{\textit{Proof:} }
-}{% end of beginning of environment, beginning of end of env
-\qed
-\vspace{\postmathenv}% previously \vspace{1\baselineskip}
-}
-\newtheorem{case}{Case}
-\renewcommand*{\thecase}{\Alph{case}}
-\newtheorem{assumption}{Assumption}
-\renewcommand*{\theassumption}{\Alph{assumption}}
-
-\def\equationautorefname~#1\null{(#1)\null}
-
-\newcounter{auditpolicy}
-\setcounter{auditpolicy}{-1}
-\newenvironment{auditpolicy}[1]{%
-\refstepcounter{auditpolicy}%
-{\tabularoldstylefont(\theauditpolicy)}~#1%
-}
-
-
-\usepackage{fancyhdr}
-\pagestyle{fancy}
-\lhead{}
-\chead{}
-\rhead{}
-\lfoot{}
-\cfoot{}
-\rfoot{\thepage}
-\renewcommand{\headrulewidth}{0pt}
-\usepackage{xcolor}
-
-% Redefine \left and \right with better spacing
-\usepackage{mleftright}
-\mleftright{}
-
-% Define \expected and \indicator commands
-\DeclareMathOperator{\blackboardE}{\mathbb{E}}
-\newcommand{\expected}[1]{\blackboardE\left[#1\right]}
-\newcommand{\indicator}[1]{\symbf{1}\left[#1\right]}
-
-
-
-\usepackage{rotating} % provide the sidewaysfigure environment
-
-% Set up tables
-\usepackage[online,flushleft]{threeparttable}
-\usepackage{dcolumn}
-\newcolumntype{d}{D{@}{\hspace{0pt}}{4}}
-\newcommand{\textcol}[1]{\multicolumn{1}{c}{#1}}
-
-% \usepackage{sparklines}
-\usepackage{tabularx}
-\usepackage{longtable}
-\usepackage{booktabs}
-
-% Bibliography
-\usepackage[
-  authordate,
-  isbn=false,
-  backend=biber,
-  autopunct=true,
-  uniquename=false
-  % backref=true
-]{biblatex-chicago}
-\renewcommand*{\bibfont}{\small}
-\addbibresource{refs.bib}
-\addbibresource{data_cites.bib}
-\addbibresource{methane_measurement_refs.bib}
-
-% use the \ce{} command for chemistry expressions like \ce{CO2}
-\usepackage[version=4]{mhchem}
-
-\usepackage{nameref}
-
-% Set up a boolean so we can easily turn endfloat on and off.
-% To turn on, change to \setboolean{endfloat}{true}
-\usepackage{ifthen}
-
-\newboolean{endfloat}
-\setboolean{endfloat}{false}
-\ifthenelse{\boolean{endfloat}}{
-  \usepackage{endfloat}
-  % stopendfloat from putting everything on separate pages
-  \renewcommand{\efloatseparator}{\mbox{}}
-}{ % else :
-  \usepackage{placeins} % provide \FloatBarrier command
-}
-
-\usepackage{graphicx}
-\graphicspath{{../graphics/}}
-\usepackage{import} % better relative import paths
-\usepackage{tikz}
-\usetikzlibrary{calc}
-\usepackage{wrapfig} % provides wrapfigure and wraptable environments
-
-
-% Define a command \blfootnote (blind foodnote or blank footnote)
-% Redefine \thefootnote to remove the symbol
-% Redefine \@makefntext to try to mimic the biblatex-chicago option footmarkoff, but only for the scope of this command.
-% Then reset the counter.
-\makeatletter
-\newcommand{\blfootnote}[1]{%
-  \begingroup
-  \renewcommand{\thefootnote}{}%
-  \renewcommand{\@makefntext}{}%
-  \footnote{#1}%
-  \addtocounter{footnote}{-1}%
-  \endgroup
-}
-\makeatother
-
-
-% Add an orcid logo:
-% Borrowed partly from https://tex.stackexchange.com/a/445583
-% And downloaded graphic from
-% https://figshare.com/articles/ORCID_iD_icon_graphics/5008697
-\usepackage{scalerel}
-\newcommand\orcidicon[1]{\href{https://orcid.org/#1}{\mbox{\scalerel*{
-\includegraphics{ORCIDiD_iconvector.pdf}
-}{|}}}}
-
-
-% Run texcount shell command and input result. Requires shell escape (or restricted shell escape) and associated security warnings
-% The -merge option includes counts for any \input{}-ed files.
-\usepackage{shellesc}
-\newcommand{\wordcount}[1]{%
-\input|"texcount -1 -sum -merge -q #1.tex"%
-}
-
-\newcommand{\thoughtbreak}{%
-\begin{center}
-\rule{5em}{1pt}
-\end{center}
-}
-
-\usepackage{setspace}
-\onehalfspacing
-\usepackage{footmisc} % must be loaded before hyperref; allows references to footnotes.
-
-\usepackage{url} % better URL line breaks.
-% Ensure more achievable output (font embedding etc.) but see the docs about
-% what it takes to be PDF/A-3b compliant.
-% \usepackage[a-3b]{pdfx}
+% Load hyperref last
 \usepackage{hyperref}
-\input{define_acronyms.tex} % loads glossaries package, and should be loaded after hyperref
-\setacronymstyle{long-sc-short}
-
 \hypersetup{colorlinks,
   linkcolor=blue!40!black,
   filecolor=black,
@@ -291,17 +32,15 @@
   unicode=true
 }
 
-% Make hyperref happy. https://tex.stackexchange.com/a/256677
-\providecommand*\propositioncounterautorefname{proposition}
 
-\widowpenalty 9999
-\predisplaypenalty=0 % lower than default 10000
+\input{define_acronyms.tex} % loads glossaries package, and should be loaded after hyperref
+\setacronymstyle{long-sc-short}
+
 
 \begin{document}
-\begin{refsection}
 \begin{center}
 
-\
+
 {\Large\titlefont
 Information Matters: Feasible Policies for Reducing Methane Emissions
 \vspace{6pt}
@@ -352,11 +91,11 @@ Code for this paper is available: \url{https://github.com/karldw/paper_hard_to_m
 \vspace{1\baselineskip}
 
 % \today{}
-March 6, 2024
+August 21, 2024
 
 \vspace*{1\baselineskip}
 
-%(\wordcount{paper} words)\\
+% (\wordcount{paper} words)\\
 }% end of \large\titlefont
 
 \end{center}
@@ -378,9 +117,9 @@ We focus on audit policies with realistic constraints, such as limited audit bud
 We develop a model of emission abatement, estimate the abatement costs using cross-sectional data from scientific studies, and simulate welfare gains from policies with varying levels of information availability.
 We show targeting substantially improves the effectiveness of policies.
 In particular, a policy that audits 1~percent of wells with uniform probability achieves
-\import{tex_fragments/}{OUTCOME=welfare_gain_pct_RULE=uniform_FRAC=1pct_tauT=med-1week.tex}\%
+\import{tex_fragments/}{intext_OUTCOME=welfare_gain_pct_RULE=uniform_FRAC=1pct_tauT=med-1week.tex}\%
 of the gains of the infeasible first best, while targeting audits using remotely sensed emissions can achieve
-\import{tex_fragments/}{OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex}\%
+\import{tex_fragments/}{intext_OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex}\%
 of the first best, even with moderate fee levels.
 
 
@@ -465,7 +204,8 @@ We count closely spaced wells, and any associated tanks, as one well pad.
 To construct the distribution of emissions, we combine several datasets from different scientific teams.
 We match these leakage measures to specific well pads, and we estimate the fraction that have detectable emissions.
 Our main dataset uses emissions estimates collected by airplanes flying over approximately 14,000 well pads in California, New Mexico, and Colorado.
-We use the presence of detected leaks and the variation in leak size to infer the distribution of sizes when leaks occur, as well as the well operators' costs of preventing those leaks.
+We use cross sectional variation in the presence of detected leaks and leak size to infer the distribution of sizes when leaks occur, as well as the well operators' costs of preventing those leaks.
+These cross-sectional estimates rely on a number of strong assumptions about functional form and the variables we include (see section~\ref{sec:estimation} for more details about these assumptions, and for a discussion on selection bias, including omitted variables bias, see section~\ref{sec:selection-bias}).
 
 
 In addition to being a greenhouse gas, methane is also the primary component of natural gas.
@@ -528,7 +268,11 @@ Blundell/Gowrisankaran/Langer:2020,
 Cicala/Hemous/Olsen:2019,
 Oestreich:2017,
 }).
+While the cross-sectional data on leak occurrence and size we rely on to determine abatement costs limit our ability to precisely quantify expected
+fees or deadweight loss under any particular policy, these data are useful for approximating the magnitudes of these outcomes and, more importantly, for
+comparing results across different policy scenarios.
 We use these policies as tools to think about the space of potential pricing options, and how that space is changed with the availability of remotely sensed measurements.
+
 
 
 We estimate that audit policies yield gains over the status quo of no fees.
@@ -536,7 +280,7 @@ These gains vary dramatically with the fee amount and the specifics of the polic
 The different policies we consider translate into different expected fees for emitting.
 For instance, the uniform audit policy~\ref{policy-uniform} has the same expected fee for every well, and that \textit{expected} fee increases as the audit probability or the allowed fee increases.
 For a mid-level fee and 1\% of wells audited, the average expected fee is
-\$\import{tex_fragments/}{OUTCOME=fee_mean_RULE=uniform_FRAC=1pct_tauT=med-1week.tex} per ton of carbon dioxide equivalent (\ce{CO2e}).%
+\$\import{tex_fragments/}{intext_OUTCOME=fee_mean_RULE=uniform_FRAC=1pct_tauT=med-1week.tex} per ton of carbon dioxide equivalent (\ce{CO2e}).%
 \footnote{%
 \label{fn:gwp}
 Throughout this paper, we use a \ce{CO2e} conversion factor of 29.8, the standard 100-year \gls{GWP} from the \gls{IPCC} AR6 \parencite{ipcc_ar6_methane_gwp}.
@@ -544,28 +288,28 @@ There is a lively debate, e.g. \textcite{Allen/Shine/Fuglestvedt/Millar/Cain/Fra
 All of these estimates come with uncertainty---the most recent \gls{GWP} estimate is 29.8 \(\pm\) 11---but in our calculations, we assume they're exact.
 }
 That policy leads to a reduction of
-\import{tex_fragments/}{OUTCOME=welfare_gain_pct_RULE=uniform_FRAC=1pct_tauT=med-1week.tex}\%
+\import{tex_fragments/}{intext_OUTCOME=welfare_gain_pct_RULE=uniform_FRAC=1pct_tauT=med-1week.tex}\%
 of the \gls{DWL}, measured as the difference between the policy~\ref{policy-bau} and the Pigouvian first best.
 In this scenario, average emissions would fall by
-\import{tex_fragments/}{OUTCOME=emission_reduce_tonCO2e_RULE=uniform_FRAC=1pct_tauT=med-1week.tex}
+\import{tex_fragments/}{intext_OUTCOME=emission_reduce_tonCO2e_RULE=uniform_FRAC=1pct_tauT=med-1week.tex}
 \ce{CO2e} per well pad per year.
 With the same audit budget and fee level, the average expected fee under policy~\ref{policy-target-x}, which targets audits based on well covariates, is still
-\$\import{tex_fragments/}{OUTCOME=fee_mean_RULE=target_x_FRAC=1pct_tauT=med-1week.tex} (mechanically the same as the uniform policy~\ref{policy-uniform}), but the expected fee is heterogeneous across wells.
+\$\import{tex_fragments/}{intext_OUTCOME=fee_mean_RULE=target_x_FRAC=1pct_tauT=med-1week.tex} (mechanically the same as the uniform policy~\ref{policy-uniform}), but the expected fee is heterogeneous across wells.
 Now the reduction in \gls{DWL} is
-\import{tex_fragments/}{OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=med-1week.tex}\%,
+\import{tex_fragments/}{intext_OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=med-1week.tex}\%,
 and the average decrease in emissions is
-\import{tex_fragments/}{OUTCOME=emission_reduce_tonCO2e_RULE=target_x_FRAC=1pct_tauT=med-1week.tex}.
+\import{tex_fragments/}{intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_x_FRAC=1pct_tauT=med-1week.tex}.
 Note that the relatively low expected fees are partly due to the infrequency of audits, so the \emph{expected} fee is considerably lower than the fee a well pad would pay when the well pad is audited and a leak is found.
 
 Policy~\ref{policy-target-e} considers targeting on observed leaks.
 In this case, the regulator can prioritize wells that were observed to be leaking, saving some of the effort of auditing wells when they're not leaking.
 For the same audit budget and allowed fee (with a high detection threshold of remotely measured leaks), there's a much higher expected fee:
-\$\import{tex_fragments/}{OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex} per ton \ce{CO2e}.
+\$\import{tex_fragments/}{intext_OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex} per ton \ce{CO2e}.
 The higher expected fees incentivize the well pad operators to abate more, leading to
 a \gls{DWL} improvement of
-\import{tex_fragments/}{OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex}\%,
+\import{tex_fragments/}{intext_OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex}\%,
 and average emissions declines of
-\import{tex_fragments/}{OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex}.
+\import{tex_fragments/}{intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=med-1week.tex}.
 
 
 These results highlight the importance of both measurement and regulatory constraints.
@@ -620,17 +364,17 @@ The paper estimates that this tax would result in an emissions reduction of 56\%
 To estimate a comparable policy, we will consider \$5~per ton \ce{CO2e} as the low-end fee a regulator might charge.
 We find sharply different results for our \$5 fee case, largely because our low audit probabilities lead to an expected fee much lower than \$5.
 When we consider \emph{expected} fees of
-\$\import{tex_fragments/}{OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=2298.tex},
+\$\import{tex_fragments/}{intext_OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=2298.tex},
 we find results in a similar range, as long as the regulator is able to detect leaks remotely.
 % Note: this 2298 was backward engineerd to reach a ~$5 level.
 For instance, an expected fee of
-\$\import{tex_fragments/}{OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=2298.tex}
+\$\import{tex_fragments/}{intext_OUTCOME=fee_mean_RULE=target_e_high_FRAC=1pct_tauT=2298.tex}
 per ton of \ce{CO2e}
 leads to emissions reductions of
-\import{tex_fragments/}{OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=2298.tex}
+\import{tex_fragments/}{intext_OUTCOME=emission_reduce_tonCO2e_RULE=target_e_high_FRAC=1pct_tauT=2298.tex}
 \ce{CO2e} per well pad per year, from a baseline of
-\import{tex_fragments/}{OUTCOME=emission_tonCO2e_RULE=none_FRAC=0pct_tauT=high-3month.tex}
-(a \import{tex_fragments/}{OUTCOME=emission_reduce_pct_RULE=target_e_high_FRAC=1pct_tauT=2298.tex}\%
+\import{tex_fragments/}{intext_OUTCOME=emission_tonCO2e_RULE=none_FRAC=0pct_tauT=high-3month.tex}
+(a \import{tex_fragments/}{intext_OUTCOME=emission_reduce_pct_RULE=target_e_high_FRAC=1pct_tauT=2298.tex}\%
 reduction).%
 \footnote{%
 Using the notation defined in section~\ref{sec:fee-levels}, the fee level is equal to \(\tau \times T = \delta \times \text{48 days}\).
@@ -679,13 +423,13 @@ Recent \gls{EPA} updates have estimated \$1.65/kg for emissions in 2020 and \$2.
 (e.g. recent work by \cite{McDuffie/etal:2023} would approximately double the estimate).
 }
 For comparison, the contribution to \gls{GDP} for the entire oil and gas sector, less wages and depreciation, averages
-\$\import{tex_fragments/}{oil_gas_industry_net_value.tex}~billion per year
+\$\import{tex_fragments/}{intext_oil_gas_industry_net_value.tex}~billion per year
 \parencite{bea_output, bea_depreciation}.
 
 
 There is little policy addressing methane emissions, either in the US or globally, though this is an active area of policy development
-\parencite{EPA-methane-rule-RIA-2023}.
-The most active current regulations are in Colorado, which require well operators to visit wells and look for leaks.
+\parencite{EPA-methane-rule-2024}.
+Some of the most active current regulations are in Colorado, which require well operators to visit wells and look for leaks.
 Other states and the US federal government have considered or begun to implement similar regulations.
 In these policies, the well operator is required to visit the well at some frequency.
 In Colorado, this ranges from once in the well's lifetime to every month, depending on the well's size and location.
@@ -696,6 +440,9 @@ These \gls{LDAR} policies, like the audit policies we consider in this paper, re
 \footnote{%
 \textcite{Agerton/Gilbert/Upton:2023} provides a nice summary of the policy challenges and a number of open questions around the economics of flaring and intentionally venting methane, in addition to the leaks considered in this paper.
 }
+The recent federal methane rule, finalized in March 2024, includes a ``Super Emitter Program'' that allows specific third-parties to report leaks over 100~kg/hr to the the \gls{EPA}.
+The \gls{EPA} then informs the well operator, who is required to take corrective action.
+(Coincidentally, this is the same size of emissions we consider for the satellite detection case in section~\ref{sec:policy-simulation}.)
 
 This paper considers audit policies as a compelling alternative.%
 \footnote{%
@@ -730,7 +477,7 @@ The US income tax examination rates are in the range of 0.5-1.0\%, depending on 
 \end{minipage}
 
 \noindent
-\includegraphics[width=0.45\textwidth, clip, trim=0pt 10pt 0pt 0pt]{epa_emiss_2015_ch4}
+\includegraphics[width=0.45\textwidth, clip, trim=0pt 10pt 0pt 0pt]{figure01_epa_emiss_2015_ch4}
 \vspace*{-2\baselineskip}
 \end{wrapfigure}
 
@@ -742,14 +489,14 @@ In our application, we assume that high detection threshold is a uniform 100~kg/
 Because we assume well operators respond purely to the expected value of a fee, any  measurement error in assessing the fee doesn't matter to our model, as long as the measurement is unbiased.
 Noisy measurement does matter in the real world.
 For instance, if fees are assessed remotely, large enough errors could inefficiently force the well to declare bankruptcy, but we put these concerns aside.
-Appendix table~\ref{tab:satellite-detection-threshold} provides more detail on satellite measurement error.\footnote{%
+Appendix table~\iftoggle{usexr}{\ref{tab:satellite-detection-threshold}}{A1} provides more detail on satellite measurement error.\footnote{%
 Other recent work, particularly
 \textcite{IrakulisLoitxate/Gorrono/ZavalaAraiza/Guanter:2022},
 notes that ``satellites \ldots{} have demonstrated a detection capability of at least \(\sim\)30--1800 kg \ce{CH4}/h for a range of continental O\&G extraction regions,'' and that their detection threshold for the more challenging context of an offshore oil platform was 1500 kg/hr.
 }
 With additional real-world constraints, including cloud cover, leaks may not be detected, even when the leak is very large.
 Emissions detection technologies, both remote and ground-based, are evolving rapidly.\footnote{%
-For example, the ``Methane Detection Technology Workshop'' organized by the US EPA in August 2021.
+For example, the ``Methane Detection Technology Workshop'' organized by the US EPA in August 2021. \hspace{0em plus 0.1em}
 \url{https://www.epa.gov/controlling-air-pollution-oil-and-natural-gas-industry/providing-information-epa-upcoming-oil-and}
 Accessed 2021-12-31.
 }
@@ -791,7 +538,7 @@ The US is not alone; another recent study found a similar underestimate in the C
 Other research, such as \textcite{Alvarez/etal:2018}, has estimated methane leakage at the basin, state, or nation level.
 These estimates are essential to know the overall leakage rate.
 However, to think about leakage abatement by individual well operators, we need to focus on individual well pads.
-Appendix figure~\ref{fig:EPA-leak-percentages-Marks} provides a decomposition of methane leaks throughout the oil and gas supply chain.
+Appendix figure~\iftoggle{usexr}{\ref{fig:EPA-leak-percentages-Marks}}{A4} provides a decomposition of methane leaks throughout the oil and gas supply chain.
 
 Mitigating these leaks depends on finding them, as well as taking care in not creating them.
 This care can include additional attention to closing tank hatches, or more frequent visits to reduce the duration of a leak.
@@ -875,7 +622,7 @@ By solving this model, we obtain expressions for well operator's behavior---incl
 Using these results, we turn to the regulator's problem in section~\ref{sec:regulator-problem-choosing-audits}.
 The regulator aims to maximize welfare by optimizing the audit probability for each well, subject to constraints on the number of audits they can do and the opportunities for targeting.
 We consider the five policies discussed above, ranging from the status quo to auditing plus remote sensing.
-The proofs of all the propositions in this section can be found in the appendix section~\ref{app:proofs}.
+The proofs of all the propositions in this section can be found in the appendix section~\iftoggle{usexr}{\ref{app:proofs}}{A1}.
 
 
 \subsection{Well Operator's Problem: Choosing Abatement}
@@ -901,9 +648,10 @@ We're thinking of abatement as largely about additional effort and monitoring by
 While the fixed leak size assumption may seem restrictive, the important feature for our model is that the leak size is not a choice variable.
 We present a static model here, but the intuition can be extended to the case where the leak size is periodically drawn from a distribution conditional on the well's covariates, rather than fixed for the well's lifetime.
 When we move from the theoretical model to estimation, we maintain the assumption that leak size is not a choice variable.
-If leak sizes are correlated with abatement costs (e.g. if it's cheaper to reduce the probability of large leaks than smaller leaks), then the leak size distribution may change.%
-\footnote{We are grateful to an attentive reviewer for noting this point.}
-Overall, ignoring this margin will tend to overestimate the cost of abatement, leading to underestimates of the quantity of abatement and the associated welfare gains.
+In general, the distribution of potential leaks will be different than the distribution of realized leaks, even if the leak size is not a choice variable, because the incentive to avoid large leaks is stronger.%
+\footnote{We are grateful to an attentive reviewer for noting this point.
+See additional discussion in footnote~\ref{fn:leak-size-distribution-change}.}
+Overall, ignoring this margin will tend to overestimate the cost of abatement. However, the extent to which the quantity of abatement and the associated welfare gains are underestimated or overestimated remains ambiguous because allowing the leak size to be a choice variable affects both the abatement costs and incentives.
 While our simplifying assumption of fixed leak size may impact the magnitudes of the welfare gains, we believe it does not undermine our primary finding---information such as observed leaks can significantly enhance the audit policies.
 
 Even without any leak regulation, the operator has a private benefit of capturing leaks, since the methane can be sold in the natural gas commodity market at price \(p_i\).
@@ -946,7 +694,7 @@ In considering this \gls{DWL}, we make a number of additional assumptions.
 We assume there are no other market failures beyond these methane leaks.
 We use methane and natural gas interchangeably in the theory section, but in the estimation, we acknowledge that natural gas is not entirely methane.
 Finally, we assume the population of wells is fixed, and wouldn't change under different policies.
-We reconsider this last assumption in appendix section~\ref{app:drilling-response-details}.
+We reconsider this last assumption in appendix section~\iftoggle{usexr}{\ref{app:drilling-response-details}}{A5}.
 
 
 
@@ -965,7 +713,7 @@ The `a' and `b' variants consider different leak detection thresholds.
 In variant a, it is assumed that all large leaks are detected, corresponding to the relatively low detection threshold of 5~kg/hr of methane leaks in our observed data.
 At various points, we describe this as having ``no detection threshold,'' since the population of leaks considered in our analysis could all be detected under this detection threshold.
 The variant b assumes a high detection threshold of 100~kg/hr, which would be a more realistic detection threshold for satellite measures
-(see appendix table~\ref{tab:satellite-detection-threshold} for more details).
+(see appendix table~\iftoggle{usexr}{\ref{tab:satellite-detection-threshold}}{A1} for more details).
 
 Note that the ex-ante \gls{DWL} depends on \(q_i\), and \(q_i\) itself is a function of the audit probability \(r_i\).
 In the audit cases, a regulator chooses the probability each well pad is audited, \(r_i\),
@@ -1062,12 +810,12 @@ It is easily seen the regulator's optimal choice of \(r_i\) is:
 \end{align*}
 Since each \(r_i\) is an audit probability, it's possible that the final realized number of audits will be slightly above \(M\).
 For a realistic number of well pads
-(\import{tex_fragments}{num_rows_aviris_matched.tex} in our study, many more in the entire US), any exceedance will be small.
+(\import{tex_fragments/}{table01_num_rows_aviris_matched.tex} in our study, many more in the entire US), any exceedance will be small.
 
 \subsubsection{Policy \ref{policy-target-x}: targeting on covariates}
 
 We next consider the case where audits are targeted on well-pad covariates (policy~\ref{policy-target-x}).
-Appendix figure~\ref{fig:game-tree-target-x} provides the extensive form game tree for the payoffs under this policy.
+Appendix figure~\iftoggle{usexr}{\ref{fig:game-tree-target-x}}{A1} provides the extensive form game tree for the payoffs under this policy.
 
 Recall that the well operator knows the size of their leak if a leak happens \(e_i\), their cost \(C_i(q_i)\), and the regulator's audit rule \(r_i = r(X_i)\), where \(r_i\) is a function of the covariates \(X_i\).
 Based on these inputs, they choose their probability of not leaking, \(q_i\).
@@ -1112,11 +860,11 @@ We next consider policy~\ref{policy-target-e}a that targets audits based on ex-p
 Here, the regulator is able to observe whether wells are leaking---and the leak sizes---before choosing whether to audit.
 Even though the leak is measured remotely, on-the-ground measurements may be required for legal reasons as we discussed earlier.
 Since leaks are rare, the regulator can now use the audit budget much more efficiently, as they waste less effort auditing wells that aren't leaking.
-Appendix figure~\ref{fig:game-tree-target-e-no-censor} provides a game tree for this case.
+Appendix figure~\iftoggle{usexr}{\ref{fig:game-tree-target-e-no-censor}}{A2} provides a game tree for this case.
 With near-perfect measurement, the only reason not to audit a well pad that was found leaking would be if the audit budget was extremely small.
 
 In the uniform and target-on-covariates policies (\ref{policy-uniform} and \ref{policy-target-x}),  the probability of auditing a particular well pad remains the same regardless of whether a leak occurs or not.
-This is no longer true in policy~\ref{policy-target-e}a).
+This is no longer true in policy~\ref{policy-target-e}a.
 The expected number of audits is now the sum of:
 audits when the well pad is leaking, times the probability it is leaking
 \textit{plus}
@@ -1145,7 +893,7 @@ The last audit scheme we consider is policy~\ref{policy-target-e}b, where we're 
 In this case, failing to observe a leak might mean that the well pad isn't leaking, or it might mean that the well pad has a leak below the detection threshold.
 This case is a variant of policy~\ref{policy-target-e}a, allowing the detection threshold to be a meaningful limit on the regulator's ability to observe leaks.
 The game tree and math are somewhat more involved---intuitively, the regulator plays a game where policy~\ref{policy-target-e}a is available for wells with detected leaks, while the other wells can only be targeted on their covariates (as in policy~\ref{policy-target-x}).
-Appendix~\ref{app:audit-target-e-high-threshold} provides details.
+Appendix figure~\iftoggle{usexr}{\ref{fig:game-tree-target-e-censor}}{A3} provides details.
 
 
 \subsubsection{Policy \ref{policy-remote}: remotely assessed fees}
@@ -1188,10 +936,10 @@ We primarily use measurements taken from airplanes using the \gls{AVIRIS-NG} sen
 These studies surveyed wells in California and the Four Corners region of northern New Mexico and southern Colorado
 \parencite{Duren/etal:2019, Frankenberg/etal:2016}.
 These flights primarily covered the San Joaquin and San Juan basins, with some flights in other California basins.
-Appendix figure~\ref{fig:frankenberg-measurement-figs} reproduces figures from \textcite{Frankenberg/etal:2016}, showing flight lines and an example of a methane plume.
+Appendix figure~\iftoggle{usexr}{\ref{fig:frankenberg-measurement-figs}}{A6} reproduces figures from \textcite{Frankenberg/etal:2016}, showing flight lines and an example of a methane plume.
 These studies aimed to survey a representative sample of wells in their respective areas, with the goal of characterizing the distribution of leak sizes and estimating total regional emissions.
 See table~\ref{tab:well-summary-stats} for summary statistics and
-appendix table~\ref{tab:covariate-balance-comparison} for a comparison of the covariates between different well pad groups.\footnote{%
+appendix table~\iftoggle{usexr}{\ref{tab:covariate-balance-comparison}}{A2} for a comparison of the covariates between different well pad groups.\footnote{%
 We compare wells with and without detected leaks, looking at our two data regions (California and Four Corners), as well as another study that did not quantify leak sizes.
 We find some modest differences in means, but substantial overlap of the distributions.
 }
@@ -1220,8 +968,8 @@ Some variables, like well pad size, are statistically significant, but overall p
 \caption{Distribution of detected methane leaks}
 \label{fig:leak-sizes}
 
-\includegraphics[width=0.49\textwidth]{leak_comparison_sizes_remote_only}
-\includegraphics[width=0.49\textwidth]{leak_comparison_fraction_with_detections_remote_only}
+\includegraphics[width=0.49\textwidth]{figure02_leak_comparison_sizes_remote_only}
+\includegraphics[width=0.49\textwidth]{figure02_leak_comparison_fraction_with_detect_remote_only}
 
 \textsc{Sources:}
 California and Four Corners distributions come from aircraft studies \parencite{Duren/etal:2019, Frankenberg/etal:2016}.
@@ -1233,7 +981,7 @@ Lower detection limit of 5--10~kg/hr depends on wind conditions during measureme
 There are a number of studies that measured well leaks on the ground;
 however, because they decline to publish well identifiers or covariates beyond contemporaneous gas production, we are not able to use their data for our analysis.
 In figure~\ref{fig:leak-sizes} we plot the distribution and presence of leaks included in our study.
-A comparison, including ground studies, is plotted in appendix figure~\ref{fig:app-leak-sizes}.\footnote{%
+A comparison, including ground studies, is plotted in appendix figure~\iftoggle{usexr}{\ref{fig:app-leak-sizes}}{A5}.\footnote{%
 Studies included in that figure are
 \textcite{%
 Robertson/Edie/Snare/Soltis/Field/Burkhart/Bell/Zimmerle/Murphy:2017,
@@ -1267,12 +1015,12 @@ In future research, it may be valuable to use these repeat observations to provi
 \label{sec:well-data}
 Well data are from Enverus, formerly known as DrillingInfo.
 These data cover all wells in California, New Mexico, and Colorado, the primary states in our analysis.
-As mentioned in the previous section, the methane measurement flights have recorded flight paths (see an example in figure~\ref{fig:frankenberg-measurement-figs}).
+As mentioned in the previous section, the methane measurement flights have recorded flight paths (see an example in figure~\iftoggle{usexr}{\ref{fig:frankenberg-measurement-figs}}{A6}).
 We use these paths to determine which wells the plane flew over and could have measured.
 We exclude wells that did not have any gas production during the month of the flight.
 While wells are designated either oil or gas wells, a large majority produce both.
 In these states,
-\import{tex_fragments/}{summ_percent_wells_nonzero_gas_in_us.tex}
+\import{tex_fragments/}{intext_summ_percent_wells_nonzero_gas_in_us.tex}
 of well pads report nonzero gas production.
 See table~\ref{tab:well-summary-stats} for summary statistics on wells in our analysis.
 
@@ -1283,7 +1031,7 @@ We define well pads as groups of wells that are very nearby one another.
 Following \textcite{Omara/Zimmerman/Sullivan/Li/Ellis/Cesa/Subramanian/Presto/Robinson:2018}, we consider a 50~m radius around each well's surface location, and take the union of any circles that intersect.
 In the more densely packed San Joaquin basin, we use a radius of 20~m.
 We match the detected methane plumes to wells, matching each plume to the nearest well pad within 500~m---we assume plumes farther away are from non-well sources and we leave them unmatched.
-\import{tex_fragments/}{aviris_match_fraction_dropped.tex}
+\import{tex_fragments/}{intext_aviris_match_fraction_dropped.tex}
 of methane measures are dropped in this matching.
 It's possible these leaks are from other sources, including natural sources, defunct wells, or other sources that aren't in-scope for this paper.
 It could also be that the well pad is not exactly at the location reported in the data.
@@ -1291,7 +1039,7 @@ It could also be that the well pad is not exactly at the location reported in th
 
 \begin{table}[!hbtp]
 \centering
-\import{individual_figures/}{well_summary_stats.tex}
+\import{individual_figures/}{table01_well_summary_stats.tex}
 \end{table}
 
 
@@ -1301,17 +1049,17 @@ It could also be that the well pad is not exactly at the location reported in th
 
 We use the private incentive generated by the commodity value of natural gas to estimate our cost coefficients.
 The natural gas price is an important part of the model, and it would be desirable to see how well operators respond to varying prices.
-But since we do not observe within-well price variation, and the price variation in our period is very minimal across wells (see figure~\ref{fig:nat-gas-price-histogram}), the price variation is not the primary source of variation used to identify the well’s cost parameters.
+But since we do not observe within-well price variation, and the price variation in our period is very minimal across wells (see appendix figure~\iftoggle{usexr}{\ref{fig:nat-gas-price-histogram}}{A8}), the price variation is not the primary source of variation used to identify the well’s cost parameters.
 
 The ideal price data would tell us what each well operator was paid for its gas production.
 That information isn't available, so we instead use gas prices at trading hubs near the wells.
 We use the average of the \gls{SNL} series ``SoCal Gas'' and ``PG\&E, South'' for California wells and
 ``El Paso, San Juan Basin'' and ``Transwestern, San Juan Basin'' for the Four Corners wells.\footnote{%
-Details of SNL's index construction are available in \url{https://www.spglobal.com/platts/plattscontent/_assets/_files/en/our-methodology/methodology-specifications/na_gas_methodology.pdf}.
+Details of SNL's indexes are available their methodology description:\hspace{0em plus 2em} \url{https://www.spglobal.com/platts/plattscontent/_assets/_files/en/our-methodology/methodology-specifications/na_gas_methodology.pdf}.
 Accessed 2020-10-27.}
 Prices are in 2019 dollars, adjusted using core CPI \parencite{fred_cpi}.
-These averages are plotted in appendix figure~\ref{fig:nat-gas-price-timeseries}.
-The matched values we use in estimation are plotted in appendix figure~\ref{fig:nat-gas-price-histogram}.
+These averages are plotted in appendix figure~\iftoggle{usexr}{\ref{fig:nat-gas-price-timeseries}}{A7}.
+The matched values we use in estimation are plotted in appendix figure~\iftoggle{usexr}{\ref{fig:nat-gas-price-histogram}}{A8}.
 These prices are midstream, at the trading hub.
 The  prices operators receive can be modestly lower than trading hubs (because of transportation costs), or modestly higher, because of the value of natural gas liquids included in the production
 \parencite{Agerton/Gilbert/Upton:2023}.
@@ -1352,7 +1100,7 @@ If we were interested in \(\hat{\beta}\) itself or ``undoing the selection'' of 
 }
 
 
-In section~\ref{sec:estimating-equations} below, we derive our estimating equations, starting with the well operators' cost function.
+In section~\ref{sec:estimating-equations} below, we derive our estimating equations, starting with the leak size and the well operators' cost function.
 Taking these equations to data requires some specific functional form assumptions.
 More detailed implementation choices, including priors for our Bayesian model, are in section~\ref{sec:estimation-implementation-and-priors}.
 We then discuss moving from the estimated model coefficients to predicted values in section~\ref{sec:fitted-values}.
@@ -1385,7 +1133,7 @@ A counterexample, where omitted variable bias could occur, would be if wells nea
 \footnote{To address this specific example, we could include \gls{BLS} estimates of county-level labor costs, but omitted variables would remain a concern.}
 This correlation is not included in our model and would generate biased estimates.
 We do include basin indicators, but those are at a large geographic scale.
-To evaluate robustness, we consider some additional geography indicators in appendix section~\ref{app:robustness-to-alternative-sets-of-variables}.
+To evaluate robustness, we consider some additional geography indicators in appendix section~\iftoggle{usexr}{\ref{app:robustness-to-alternative-sets-of-variables}}{A6}.
 
 There's also potential for non-classical measurement error.
 The accuracy of measurement depends partly on the wind speed when the airplane is overhead.
@@ -1399,9 +1147,18 @@ We believe these issues of selection and measurement error are small relative to
 
 Our empirical analysis follows closely from our theory.
 The estimation process involves two parts: estimating the leak sizes and estimating the cost function in the well operators' \gls{FOC}.
-These are estimated simultaneously.
+Our goal is to estimate a joint distribution of the exogenous parameters in the model---the well operators' cost parameters and parameters that determine leak sizes---that best fits the observed leak size and occurrence.
+In the section below, we detail the specific functional form assumptions we apply, bringing the general forms presented in the theory section to estimable models.
+
+\subsubsection{Leak Size}
 We model the measured leak size, \(e_i\), as lognormal.
-This choice fits the leak sizes reasonably well, and is standard in the methane measurement literature.
+This choice fits the leak sizes reasonably well, and is standard in the methane measurement literature.%
+\footnote{%
+\label{fn:leak-size-distribution-change}
+Note that the distribution of leak sizes will change as well operators choose abatement effort based on the potential leak sizes.
+This is because the incentive to fix larger leaks is greater than the incentive to fix small leaks, for a given cost of repair.
+Consequently, there are fewer large leaks in the distribution of realized leaks, compared to the distribution of potential leak sizes.
+}
 One wrinkle to the estimation is that the lognormal distribution has positive probability everywhere above zero, but our leak measurements are censored below by the \gls{AVIRIS-NG} detection limit of 5--10~kg/hr (depending on local wind conditions).
 We assume there is no upper detection limit.
 To adjust for the lower limit, we model \(e_i - \underline{e} \in (0, \infty)\) as the dependent variable, where \(\underline{e} = 5\) is the approximate censoring threshold.
@@ -1416,11 +1173,12 @@ e_i &\sim \text{LogNormal}(X_i \beta, \sigma) + \underline{e}
 \end{align*}
 where \(\beta\) and \(\sigma\) are parameters to estimate.
 
-
+\subsubsection{Cost Function}
 
 To apply the cost functions to the data, we need a specific functional form.
-We assume a cost function \(C\), parameterized by well-specific values \(A_i\) and \(\alpha_i\).
-Broadly, \(A_i\) scales the cost and \(\alpha_i\) determines the elasticity with respect to \(1 - q_i\).
+We assume a cost function \(C\), parameterized by heterogeneous  values \(A_i\) and \(\alpha_i\).
+(See below for details on the heterogeneity allowed in \(A_i\) and \(\alpha_i\).)
+In broad terms, \(A_i\) scales the level of the cost and \(\alpha_i\) determines the elasticity with respect to the probability of leaking, \(1 - q_i\).
 We assume:
 \begin{align*}
 \text{Total cost: }& C_i(q_i) = C(q_i; A_i, \alpha_i) = -\frac{A_i}{\alpha_i + 1} (1 - q_i) ^{\alpha_i + 1}\\
@@ -1428,55 +1186,42 @@ We assume:
 \end{align*}
 This cost function \(C_i(q_i)\) has a constant elasticity of \(\alpha_i + 1\) with respect to the probability of having a leak, \(1 - q_i\).
 In turn, the marginal cost function has an elasticity of \(\alpha_i\).
-The cost parameters \(A_i > 0\) and \(\alpha_i < -1\) allow for well-level heterogeneity.
+The cost parameters \(A_i > 0\) and \(\alpha_i < -1\) allow for heterogeneity across wells.
 We choose this form because it is relatively simple, allows for rich heterogeneity, and satisfies our cost function assumptions.
 However, other cost functions are certainly possible, and, because our analysis extrapolates beyond current abatement costs, alternative cost functions could yield significantly different results.
 
-
-In our data, there is no fee on emissions, so wells set their marginal cost equal to the value of lost gas, \(p_i e_i H\).\footnote{%
-Here \(p_i\) is a price (dollars per kg of methane),
+\glsreset{FOC}
+We can manipulate this cost function to consider the well operators' \gls{FOC}, as they optimize their choice of \(q_i\).
+In our data, there is no fee on emissions, so at the baseline wells set their marginal cost equal to the value of lost gas.
+We can define some notation:
+\(p_i\) is a price (dollars per kg of methane),
 \(e_i\) is a leak rate (kg/hr), and
 \(H\) is the period of hours that the well operator's choice of \(q_i\) applies to (one year).
-}
-Rearranging the terms of the \gls{FOC} yields the following expression of the status-quo (policy~\ref{policy-bau}) \(q\), which we define \(\tilde{q}_i\).
-\begin{align*}
+Then the expected value of the lost gas is \((1 - q_i) p_i e_i H\).
+Rearranging the terms of the \gls{FOC} yields the following expression of the status-quo (policy~\ref{policy-bau}) \(q_i\), which we define \(\tilde{q}_i\).
+\begin{align}
+\label{eqn:q_tilde}
     1 - \tilde{q_i} &= \left(\frac{p_i e_i H}{A_i}\right) ^{1 / \alpha_i}
-\end{align*}
+\end{align}
+In the data, we do not observe leak probabilities, only leak occurrence.
 Define \(d_i \in \{0, 1\}\) as the observation of having a leak for well pad \(i\) so we have:
 \begin{align*}
-    d_i &\sim \text{Bernoulli}(1 - \tilde{q_i})
+    d_i &\sim \text{Bernoulli}(1 - q_i)
 \end{align*}
-We want to allow for heterogeneity in \(A_i\) and \(\alpha_i\) with well pad covariates, while enforcing the acceptable ranges of these cost parameters, with \(A_i \in (0, e_i p_i H)\) and \(\alpha_i < -1\).
-For parsimony, we use linear expressions with an inverse logit transformation to scale the values such that
+We can use the observations of status-quo \(d_i\) to estimate \(\tilde{q_i}\).
+
+\subsubsection{Explanatory Variables and Cost Parameter Heterogeneity}
+The wells in our sample are quite heterogeneous, and we want to incorporate this heterogeneity into our cost parameter estimates.
+We allow \(A_i\) and \(\alpha_i\) to depend on observed well pad covariates.
+
+The simplest approach would be to allow \(A_i\) and \(\alpha_i\) to be affine combinations of our covariates.
+Because the acceptable ranges of these cost parameters are bounded, with \(A_i \in (0, e_i p_i H)\) and \(\alpha_i < -1\), we add an inverse logit transformation to scale the values such that the combination lands in the acceptable range:
 \begin{align}
 \label{eqn:cost-param-bounds}
     % A_i &= \text{logit}^{-1}(X_i\psi) \cdot p \cdot \underline{e} \cdot H \in (0, e_i p_i H)\\
     A_i &= \text{logit}^{-1}(X_i\psi) \cdot p_i \cdot e_i \cdot H \in (0, e_i p_i H)\\
     \alpha_i &= -1 / \text{logit}^{-1}(X_i\phi) < -1 \nonumber
 \end{align}
-We take these equations to the data,
-simultaneously estimating \(\beta\), \(\sigma\), \(\phi\), and \(\psi\).
-Our estimate of \(e_i\) is described in greater detail in section~\ref{sec:fitted-values}.
-
-\subsection{Estimation Implementation and Priors}
-\label{sec:estimation-implementation-and-priors}
-
-We estimate a nonlinear, likelihood-based model that uses the cost function in section~\ref{sec:estimating-equations}.
-In slight contrast to standard approaches, we estimate this model in a bootstrapped Bayesian framework \parencite{Huggins/Miller:2019}.
-We draw 100 bootstrap datasets with replacement, and for each dataset we estimate 400 \gls{MCMC} draws from the Bayesian posterior.
-We subset those 40,000 draws to 4000 draws by taking every 10th draw.
-For each draw, we calculate outcomes (audit probability, \gls{DWL}, etc.).
-To report point estimates and \glspl{CI}, we use the means and even-tailed 95\% quantile ranges.
-This approach, called ``BayesBag,'' has several advantages.
-First, it is relatively straightforward to estimate this nonstandard model, with the predicted leak size entering the calculation of leak probability.
-Second, Bayesian models handle uncertainty more cleanly than standard frequentist models.
-(\cite{Meager:2019} highlights the benefits of this type of Bayesian modeling in an economics context.)
-Finally, the bootstrap provides some robustness to model misspecification---Huggins and Miller note that ``in the presence of significant misspecification, BayesBag yields more reproducible inferences [and] has better predictive accuracy.''
-Estimating this Bayesian model requires specifying priors.
-We choose priors that are very weakly informative on the outcome scale,
-following current Bayesian standard practices \parencite{Gelman/etal:2020}.
-Details are provided in appendix section~\ref{sec:model-priors}.
-
 The choice of explanatory \(X\) variables matters in this analysis, though for a different reason than in many analyses.
 They have some role in controlling for endogeneity (discussed in \ref{sec:selection-bias}),
 but their role is at least as important in allowing for well pad heterogeneity.
@@ -1491,10 +1236,39 @@ There are other variables in the well dataset, including specifics of well locat
 Information on gathering lines is present, but incomplete.
 We chose the specific variables listed in table~\ref{tab:well-summary-stats} because they are central descriptors of the wells, available for every well, and parsimoniously describe the wells' activity.
 Of course, it would be possible to use other variables, or other functions of these variables.
-We explore robustness to using subsets of our preferred variables in appendix~\ref{app:robustness-to-alternative-sets-of-variables}.
+We explore robustness to using subsets of our preferred variables in appendix~\iftoggle{usexr}{\ref{app:robustness-to-alternative-sets-of-variables}}{A6}.
+
+With all of these functional form assumptions in place, our goal is now to estimate the parameters \(\beta\), \(\sigma\), \(\phi\), and \(\psi\), the underling parameters that determine leak sizes and cost of reducing leak probability.
+
+\subsection{Estimation Implementation and Priors}
+\label{sec:estimation-implementation-and-priors}
+
+The functional forms described above lend themselves likelihood-based framework, where leak sizes are described by the assumed lognormal distribution and leak occurrence by the Bernoulli.
+\begin{align*}
+e_i &\sim \text{LogNormal}(X_i \beta, \sigma) + \underline{e} \\
+d_i &\sim \text{Bernoulli} \left(\frac{p_i e_i H}{A_i}\right) ^{1 / \alpha_i}
+\end{align*}
+
+We estimate this model in a bootstrapped Bayesian framework \parencite{Huggins/Miller:2019}, which allows for a better characterization of uncertainty than, e.g., maximum likelihood.
+Our bootstrapping process produces a large number of Monte Carlo draws.\footnote{%
+We draw 100 bootstrap datasets with replacement, and for each dataset we generate 400 \gls{MCMC} draws from the Bayesian posterior.
+We subset those 40,000 draws to 4000 draws by taking every 10th draw.
+}
+For each draw, we calculate outcomes (audit probability, \gls{DWL}, emissions, etc.).
+To report point estimates and \glspl{CI}, we use the means and even-tailed 95\% quantile ranges of the final outcome variables.
+This approach, called ``BayesBag,'' has several advantages.
+First, it is relatively straightforward to estimate this nonstandard model, with the predicted leak size entering the calculation of leak probability.
+Second, Bayesian models handle uncertainty more cleanly than standard frequentist models.
+(\cite{Meager:2019} highlights the benefits of this type of Bayesian modeling in an economics context.)
+Finally, the bootstrap provides some robustness to model misspecification---Huggins and Miller note that ``in the presence of significant misspecification, BayesBag yields more reproducible inferences [and] has better predictive accuracy.''
+Estimating this Bayesian model requires specifying priors.
+We choose priors that are very weakly informative on the outcome scale,
+following current Bayesian standard practices \parencite{Gelman/etal:2020}.
+Details are provided in appendix section~\iftoggle{usexr}{\ref{app:model-priors}}{A3.1}.
 
 
-The identifying variation comes from a couple of different types of heterogeneity in the covariates and outcomes.
+
+The identifying variation comes from several types of heterogeneity in the covariates and outcomes.
 Let's first imagine we estimated homogeneous cost parameters, with \(A\) and \(\alpha\) the same for all wells.
 We could do this estimation with no covariates, finding the values of \(A\) and \(\alpha\) that fit the overall, unconditional leak probability given the unconditional distribution of leak sizes.
 That estimate would be unbiased if there were no other factors that correlate with both the well's leak probability and leak size.
@@ -1513,42 +1287,47 @@ Additional modeling of measurement error and its implications for regulation wou
 \subsection{Fitted Values}
 \label{sec:fitted-values}
 
-To calculate the policy simulations, we need values for \(\hat{e}_i\), \(\hat{A}_i\), \(\hat{\alpha}_i\), and \(\hat{q}_i(t_i)\).
+To calculate the policy simulations, we need fitted values for the draws of \(\hat{A}_i\), \(\hat{\alpha}_i\), \(\hat{e}_i\), and \(\hat{q}_i(t_i)\).
 We plug in our estimated coefficients.
 Each coefficient value is one \gls{MCMC} draw from the posterior distribution; we use each draw in turn to calculate the posterior distribution of our policy simulations.
-For \(\hat{e}_i\), we use the smearing estimator from \textcite{Manning/Duan/Rogers:1987}, which is a minor change to be more robust to violations of the assumed lognormal distribution.%
-\footnote{%
-Define \(M\) as the number of wells with measured leaks in the data.
-Rather than using the expected value of the lognormal distribution, the smearing estimator uses the mean of the exponent of the residuals for leak sizes
+
+\(\hat{A}_i\) and \(\hat{\alpha}_i\) are simple---we plug in the values of \(\hat{\psi}\) and \(\hat{\psi}\), as described in equation~\ref{eqn:cost-param-bounds}.
+For \(\hat{e}_i\), we use the estimated coefficients \(\hat{\beta}\).
+To be more robust to violations of the assumed lognormal distribution, we use the the smearing estimator from \textcite{Manning/Duan/Rogers:1987} instead of using the expected value of the lognormal distribution.
+For that smearing estimator, define \(M\) as the number of wells with measured leaks in the data.
+The smearing estimator uses the mean of the exponent of the residuals for leak sizes:
 \(\frac{1}{M} \sum_j \exp(\varepsilon_j)\), where
 \(\varepsilon_j \equiv \log(e_j - \underline{e}) - X_j \hat{\beta}\).
-}
 
+The formula for \(\hat{q}_i(t_i)\) closely resembles the expression above for \(\tilde{q}\) (eq.\ref{eqn:q_tilde}), but now must include a term for both the value of the lost gas and the fee paid.
 Recall \(H\) is the number of hours in the well operator's decision problem, \(T\) is the number of hours the regulator can assume a leak lasts, and \(t_i\) is the expected fee per hour per kilogram.
 Combining all of these, in the fourth line we can predict how a well's probability of having no leak will increase when it faces expected fee \(t_i\).
-The estimated values of \(\hat{\beta}\), \(\hat{\phi}\), and \(\hat{\psi}\) are summarized in appendix table~\ref{tab:model-param}.
-These parameters drive our modeled cost function, but the individual coefficients' values or statistical significance are not particularly meaningful.
 \begin{align}
-\hat{e_i} &= \exp( X_i \hat{\beta}) \cdot \frac{1}{M}\sum_j \exp(\varepsilon_j) + \underline{e} \nonumber \\
 \hat{A}_i &= \text{logit}^{-1}(X_i \hat{\psi}) \cdot p_i \cdot \hat{e_i} \cdot H \nonumber \\
 \hat{\alpha}_i &= -1 / \text{logit}^{-1}(X_i \hat{\phi}) \label{eqn:alpha-fitted} \\
+\hat{e_i} &= \exp( X_i \hat{\beta}) \cdot \frac{1}{M}\sum_j \exp(\varepsilon_j) + \underline{e} \nonumber \\
 \hat{q_i}(t_i) &= 1 - \left(\frac{(H p_i + T t_i) \hat{e_i}}{\hat{A}_i}\right) ^{1 / \hat{\alpha}_i} \nonumber
 \end{align}
+The estimated values of \(\hat{\beta}\), \(\hat{\sigma}\),  \(\hat{\phi}\), and \(\hat{\psi}\) are summarized in appendix table~\iftoggle{usexr}{\ref{tab:model-param}}{A3}.
+These parameters drive our model, but the individual coefficients' values or statistical significance are not particularly meaningful.
+
+\subsubsection{Policy Simulation with Fitted Values}
 
 Using these values for policy simulation poses a challenge:
 \(\hat{e_i}\) is an expected value, with lower variance than the observed distribution of \(e_i\) from wells that leaked.
-Policy simulations that use \(\hat{e_i}\) could have the playing field tilted in their favor for two related reasons.
+Policy simulations that use \(\hat{e_i}\) could have the playing field tilted in their favor for two reasons.
 First, a lower variance of emissions can make a simple audit policy, which doesn't target very well, look better than it should.
 Second, the policy exercise becomes an in-sample prediction, since we're using the same data to estimate \(\hat{e_i}\) as to target the policy.
-Instead, we calculate a random draw from the distribution of leak sizes, conditional on \(X_i\).
+
+To avoid these issues, we calculate a new, random draw from the distribution of leak sizes, conditional on \(X_i\).
 Call this random draw \(e'_i\).
-We now have three different leak rate variables:
-\(e_i\) is the original, measured leaks for a subset of wells.
-\(\hat{e_i}\) is the predicted leak size that each well pad would have, if a leak occurred.
-\(e'_i\) is a draw from the conditional distribution of modeled leak sizes, but is having a higher variance than \(\hat{e_i}\).
+We now have three different leak rate variables.
+First, \(e_i\) is the original, measured leak size for a subset of wells.
+Second, \(\hat{e_i}\) is the predicted leak size that each well pad would have, if a leak occurred.
+Third, \(e'_i\) is a draw from the conditional distribution of modeled leak sizes, which has a higher variance than \(\hat{e_i}\).
 (Note that we draw and use a model-based \(e'_i\) value, even for wells with observed leaks.)
 The corresponding probability of not having a leak is \(q'_i\).
-When we consider targeting our policies, we will target based on \(\hat{e_i} \) and \(\hat{q_i}\), but we will score the outcomes using \(e_i'\) and \(q_i'\).
+When we consider policies that differentiate between wells, we will target wells based on \(\hat{e_i} \) and \(\hat{q_i}\), but we will score the outcomes using \(e_i'\) and \(q_i'\).
 \begin{align*}
 e'_i &\sim \text{LogNormal}(X_i \hat{\beta}, \hat{\sigma}) + \underline{e} \\
 q'_i &= 1 - \left(\frac{(H p_i + T t_i) e'_i}{\hat{A}_i}\right) ^{1 / \hat{\alpha}_i}
@@ -1558,21 +1337,12 @@ The condition \(\hat{A}_i \in (0, e'_i p_i H)\) still needs to be satisfied; oth
 For a very small fraction of cases---approximately 0.005\% of observations across our \gls{MCMC} draws---we draw a value of \(e'_i\) such that the estimated \(\hat{A}_i \notin (0, e'_i p_i H)\).
 For these cases, we redraw \(e'_i\)s until the condition is satisfied.
 
-
-To contextualize the estimated values of these cost parameters, we plot two graphs highlighting features of the cost function.
-Appendix figure~\ref{fig:histogram-alphas} shows the distribution of the heterogeneous marginal cost elasticity across wells, \(-\hat{\alpha}_i\).
-The bulk of these values end up around 1--1.25, though some show considerably larger magnitudes.
-This figure takes the mean for each well pad of the posterior distribution of \(\alpha\) values.
-To begin to understand the abatement curve, figure~\ref{fig:abatement-dwl-demo} highlights the abatement cost curve for one well, for one \gls{MCMC} draw, for one imagined policy that imposes some expected cost of emitting.
-The figure highlights that even for a cost that is relatively small compared to the social cost, it's possible to have a meaningful decrease in the probability of a leak.
-The deadweight loss in the figure is reduced from the light gray area to the dark gray.
-In section~\ref{sec:policy-simulation}, we perform this type of analysis repeatedly, for each well, each \gls{MCMC} draw, and each policy scenario.
-
+\subsubsection{An Example Abatement Curve}
 
 \begin{figure}[!bth]
 \caption{Example abatement cost and \gls{DWL} reduction for one draw of one well}
 \label{fig:abatement-dwl-demo}
-\includegraphics[width=\textwidth]{model_cost_vs_q_dwl_plot}
+\includegraphics[width=\textwidth]{figure03_model_cost_vs_q_dwl_plot}
 {\small\singlespacing
 \vspace*{-1\baselineskip}
 The solid line represents one well operator's estimated abatement cost curve for one \gls{MCMC} draw.
@@ -1582,13 +1352,23 @@ Reducing the probability of a leak reduces the \gls{DWL}, shown in shaded gray a
 }
 \end{figure}
 
+To contextualize the estimated values of these cost parameters, we plot figure~\ref{fig:abatement-dwl-demo}, which highlights the abatement cost curve for one well, for one \gls{MCMC} draw, for one imagined policy that imposes some expected cost of emitting.
+The figure highlights that even for a cost that is relatively small compared to the social cost, it's possible to have a meaningful decrease in the probability of a leak.
+The deadweight loss in the figure is reduced from the light gray area to the dark gray.
+In section~\ref{sec:policy-simulation}, we perform this type of analysis repeatedly, for each well, each \gls{MCMC} draw, and each policy scenario.
+
+
+Appendix figure~\iftoggle{usexr}{\ref{fig:histogram-alphas}}{A9} shows the distribution of the heterogeneous marginal cost elasticity across wells, \(-\hat{\alpha}_i\).
+The bulk of these values end up around 1--1.25, though some show considerably larger magnitudes.
+That figure takes the mean for each well pad of the posterior distribution of \(\alpha\) values.
+
 
 \section{Policy Simulation}
 \label{sec:policy-simulation}
 
 
 \begin{figure}[!bth]
-\import{individual_figures/}{expected_fee_1pct.tex} % fig:expected-fee-1pct
+\import{individual_figures/}{figure04_expected_fee_1pct.tex} % fig:expected-fee-1pct
 \end{figure}
 
 In this section, we consider how different policies translate into different expected fees, and how those fees affect the \gls{DWL} and emissions outcomes.
@@ -1639,9 +1419,9 @@ Note the very different \textit{y-}axis scaling between the top panel, where the
 Second, if we focus on the top panel, the distributions of expected fees under the ``Target covariates'' policy (\ref{policy-target-x}) have significant variation across well pads.
 For instance, in the ``Medium \(\times\) 3 month'' case, the interquartile range of the boxplot remains very narrow, with a considerable fraction of well pads facing much higher expected fees:
 the 75th percentile is
-\$\import{tex_fragments/}{OUTCOME=fee_p75_RULE=target_x_FRAC=1pct_tauT=med-3month.tex},
+\$\import{tex_fragments/}{intext_OUTCOME=fee_p75_RULE=target_x_FRAC=1pct_tauT=med-3month.tex},
 while the 99th percentile is
-\$\import{tex_fragments/}{OUTCOME=fee_p99_RULE=target_x_FRAC=1pct_tauT=med-3month.tex}.
+\$\import{tex_fragments/}{intext_OUTCOME=fee_p99_RULE=target_x_FRAC=1pct_tauT=med-3month.tex}.
 In other words, the regulator of the ``Target covariates'' policy allocates nearly the entire audit budget towards a fraction of well pads, which is in contrast to the uniform audit policy.
 Third, if we turn to the bottom panel, we note that the ``Remote, low threshold'' case (policy~\ref{policy-remote}a) simulates a standard Pigouvian tax that is limited only by the ``tax rate," \(\tau T\).
 For instance, in the highest fee scenario, every well pad is subject to the same tax rate, which is half of \(\delta \times \text{1 year}\).
@@ -1663,7 +1443,7 @@ As noted in section~\ref{sec:fitted-values}, to score the policy in terms of \gl
 When relevant, we also use the draw to determine if the leak is above the high detection threshold.
 
 \begin{figure}[!bth] % fig:policy-outcomes-1pct
-\import{individual_figures/}{policy_outcomes_frac=1pct.tex}
+\import{individual_figures/}{figure05_policy_outcomes_frac=1pct.tex}
 \end{figure}
 
 
@@ -1673,10 +1453,10 @@ The emission reduction plot shares a similar pattern as that of \gls{DWL} reduct
 The target covariates policy offers an improvement over the uniform auditing policy in relative terms.
 At low fees, when the absolute welfare gains from both are quite small, the
 targeting on covariates leads to a \gls{DWL} improvement
-\import{tex_fragments/}{OUTCOME=welfare_gain_pct_vs_uniform_RULE=target_x_FRAC=1pct_tauT=low-1week.tex}~percent
+\import{tex_fragments/}{intext_OUTCOME=welfare_gain_pct_vs_uniform_RULE=target_x_FRAC=1pct_tauT=low-1week.tex}~percent
 higher than the uniform.
 At higher fee levels, when both are much more effective in absolute terms, targeting on covariates still yields gains
-\import{tex_fragments/}{OUTCOME=welfare_gain_pct_vs_uniform_RULE=target_x_FRAC=1pct_tauT=high-3month.tex}~percent
+\import{tex_fragments/}{intext_OUTCOME=welfare_gain_pct_vs_uniform_RULE=target_x_FRAC=1pct_tauT=high-3month.tex}~percent
 higher.
 
 Recall that the remote fee policy with a low threshold, which is less feasible, emulates a straightforward tax that is restricted only by the tax rate.
@@ -1688,11 +1468,11 @@ Because leaks are rare, even with a limited budget, it can be possible to audit 
 For each policy, a higher fee level leads to a greater reduction of \gls{DWL}, as predicted by Proposition~\ref{prop_properties_of_dwl}.
 The value of information, as measured by the larger welfare gains obtained from targeting wells with remotely measured leaks, also increases with the fee level in the figure.
 In the lowest fee scenario, none of the policies perform well, and the value of information is also minimal: the target covariates policy achieves an
-\import{tex_fragments/}{OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=low-1week.tex}\%
+\import{tex_fragments/}{intext_OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=low-1week.tex}\%
 \gls{DWL} reduction, while the target leaks policy with high threshold achieves a
-\import{tex_fragments/}{OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=low-1week.tex}\% \gls{DWL} reduction.
+\import{tex_fragments/}{intext_OUTCOME=welfare_gain_pct_RULE=target_e_high_FRAC=1pct_tauT=low-1week.tex}\% \gls{DWL} reduction.
 In the highest fee scenario with minimal detection threshold, the value of information is significant: the target covariates policy only achieves
-\import{tex_fragments/}{OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=high-3month.tex}\%
+\import{tex_fragments/}{intext_OUTCOME=welfare_gain_pct_RULE=target_x_FRAC=1pct_tauT=high-3month.tex}\%
 \gls{DWL} reduction, while the target leaks policy nearly attains the first best.
 However, note that the value of information is not monotonically increasing with the fee level.
 When the fee level is sufficiently high (which is higher than the fee levels we considered in our analysis), the audit budget constraint might no longer be binding.
@@ -1701,10 +1481,10 @@ In that scenario, even the uniform audit policy can achieve the first best so th
 The effectiveness of both the target leaks and remote fee policies is significantly influenced by the detection thresholds.
 However, policies with high detection threshold still capture a substantial portion of the welfare gains by policies with the less feasible low detection threshold.
 In particular, the target leaks policy with the high detection threshold achieves
-\import{tex_fragments/}{OUTCOME=welfare_pct_of_target_e_low_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex}\%
+\import{tex_fragments/}{intext_OUTCOME=welfare_pct_of_target_e_low_RULE=target_e_high_FRAC=1pct_tauT=med-3month.tex}\%
 of the \gls{DWL} reduction achieved by the same policy with the low detection threshold.
 
-\ifthenelse{\boolean{endfloat}}{}{\FloatBarrier} % add a \FloatBarrier if not using endfloat
+\iftoggle{endfloat}{}{\FloatBarrier} % add a \FloatBarrier if not using endfloat
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -1754,480 +1534,14 @@ At the same time, the regulatory details matter---the policies that use more inf
 Our work contributes to a broader literature on the role of measurement in determining policy outcomes.
 
 
-\ifthenelse{\boolean{endfloat}}{}{\FloatBarrier} % add a \FloatBarrier if not using endfloat
+\iftoggle{endfloat}{}{\FloatBarrier} % add a \FloatBarrier if not using endfloat
 
 
 \clearpage
 \begin{RaggedRight}
 \twocolumn
 {\singlespacing
-\printbibliography
+\printbibliography[notkeyword={code}]
 }
 \end{RaggedRight}
-% Stop collecting citations for the main body and start collecting for the appendix.
-\end{refsection}
-\onecolumn
-\newpage
-
-\appendix
-% \part{Appendix}
-
-\begin{refsection}
-
-\newpage
-
-\section{Proofs and Technical Details}
-\label{app:proofs}
-
-\subsection{Proof of Proposition~\ref{prop_properties_of_dwl}}
-\label{app:proofs-well-operator}
-\begin{proof}
-Because \(C_i'\) is strictly increasing and convex, \(C_i'^{-1}(x) =: f(x)\) is strictly increasing and concave.
-\begin{align*}
-\frac{\partial \text{DWL}_i}{\partial t_i} &= - \frac{\partial {C_i'}^{-1}(e_i \cdot (p_i + t_i))}{\partial t_i} \cdot e_i (\delta - t_i) = - f' \cdot e_i^2 (\delta - t_i) < 0\\
-\frac{\partial^2 \text{DWL}_i}{\partial t^2_i} &= - \frac{\partial f' \cdot e_i^2 (\delta - t_i)}{\partial t_i} = -e_i^2(\underbrace{f'' \cdot e_i(\delta - t_i)}_{<0} - f') > 0
-\end{align*}
-\end{proof}
-
-
-\subsection{Proof of Proposition~\ref{prop_monotone_audit}}
-\label{app:audit-policy-proofs-covariates}
-\begin{proof}
-The feasible set under the constraint is a compact subset of \(\mathbb{R}^N\) so a solution exists.
-Because \(\text{\gls{DWL}}_i\) only depends on \(r_i\) and \(\text{\gls{DWL}}_i\) is strictly increasing,
-convex in \(r_i\) and the constraints are linear inequalities,
-we conclude a unique solution exists and can be characterized by the standard \gls{KKT} conditions.
-
-Let \(r^*_i\)s be the solution of the problem.
-Suppose there exists \(k,j\) such that \(e_k > e_j\) but \(r^*_k < r^*_j\).
-Consider \(\hat{r_i}\)s such that \(\hat{r_i} = r^*_i\) for all \(i \neq k,j\) and  \(\hat{r_k} = r^*_j, \hat{r_j} = r^*_k\).
-Clearly, \(r^*_i\) also satisfy all the constraints.
-The difference in the total \gls{DWL} for \(\hat{r_i}\)s and \(r^*_i\)s is equal to
-\begin{align*}
-&\text{DWL}_k(\hat{r_k}) + \text{DWL}_j(\hat{r_j}) - (\text{DWL}_k(r^*_k) + \text{DWL}_j(r^*_j))\\
-= &\text{DWL}_k(r^*_j) - \text{DWL}_k(r^*_k) + \text{DWL}_j(r^*_k) - \text{DWL}_j(r^*_j)\\
-= &\int_{r^*_k}^{r^*_j} \frac{\partial \text{DWL}_k}{\partial r_k} \ d r + \int_{r^*_j}^{r^*_k} \frac{\partial \text{DWL}_j}{\partial r_j} \ d r\\
-= & \int_{r^*_k}^{r^*_j} \frac{\partial \text{DWL}_k}{\partial r_k} - \frac{\partial \text{DWL}_j}{\partial r_j} \ d r
-\end{align*}
-Since \(\frac{\partial^2 \text{DWL}_i}{\partial r_i \partial e_i} < 0\) and \(e_k > e_j\), the integrand is negative and hence the whole integral is negative, which implies \gls{DWL} under \(\hat{r_i}\)s is small.
-This a contradiction to \(r^*_i\)s being optimal.
-\end{proof}
-
-Note that for the estimation part, the inequality \(\frac{\partial^2 \text{DWL}_i}{\partial r_i \partial e_i} < 0\) follows directly from the specific choice function we chose and the expected fee \(t_i\) being an increasing function of \(r_i\),
-\begin{align*}
-  \frac{\partial^2 DWL_i}{\partial t_i \partial e_i} &=
-    \left(1 + \frac{1}{\alpha}\right) e^{\frac{1}{\alpha}}_i
-    \frac{(\delta - t_i)}{\alpha (p_i + t_i)}
-    \left(\frac{(p_i + t_i)}{A}\right)^{\frac{1}{\alpha}} < 0
-\end{align*}
-
-\subsection{Proof of Proposition~\ref{prop_value_of_info}}
-\begin{proof}
-Suppose there is no leak observed for a well.
-Then the well operator will not pay any fee even when the well pad is audited because the leak detection threshold is the same for remote measurement and the audit under Policy 3a.
-It follows that the regulator should not audit this well pad to save the audit budget.
-
-Let \(r^*_i\)s be the optimal audit probabilities for Policy 2 so \(\sum^{N}_{i=1} r^*_i \leq M\).
-Because \(0 \leq q_i \leq 1\), \(\sum^{N}_{i=1} \Bigl( q_i \cdot 0 + (1 - q_i) r^*_i \Bigl) \leq M\).
-That is, every set of feasible audit probabilities \(r^*_i\)s for Policy 2 is also feasible for Policy 3a.
-Since Policy 2 has the same objective function as Policy 3a, it follows the regulator achieves a higher \gls{DWL} reduction.
-\end{proof}
-
-
-\newpage
-
-\subsection{Extensive form game trees for policies \ref{policy-target-x} and \ref{policy-target-e}a}
-
-
-
-\begin{figure}[!pbth]
-\vspace*{-1\baselineskip}%
-\import{individual_figures/}{game_tree_target_x.tex} % fig:game-tree-target-x
-
-\begin{minipage}{1\textwidth}
-
-\begin{justify}
-{\small
-In this figure, the well operator chooses the probability of not having a leak, \(q_i\), with full knowledge of the probability they will be audited, \(r_i\).
-Then nature determines whether a leak occurs.
-The regulator does not know whether a leak has occurred---their information set is indicated in a dashed oval.
-If the well pad is leaking and is audited, the well operator pays \(\tau e_i\).
-In all other cases, they pay zero.
-}
-\end{justify}
-\end{minipage}
-\end{figure}
-
-
-
-\begin{figure}[!pbth] % fig:game-tree-target-e-no-censor
-\import{individual_figures/}{game_tree_target_e_no_censor.tex}
-
-\begin{minipage}{1\textwidth}
-
-\begin{justify}
-{\small
-In this figure, the well operator chooses the probability of not having a leak, \(q_i\), with full knowledge of the probability they will be audited, \(r_i\).
-Then nature determines whether a leak occurs.
-The regulator knows when a leak has occurred, and will never audit a well pad that isn't leaking.
-If the well pad is leaking and is audited, the well operator pays \(\tau e_i\).
-In all other cases, they pay zero.
-}
-\end{justify}
-\end{minipage}
-\end{figure}
-
-\clearpage
-
-
-\subsection{Policy~\ref{policy-target-e}b: Target auditing on observed emissions: high threshold}
-\label{app:audit-target-e-high-threshold}
-
-Policy~\ref{policy-target-e}b is the case where the regulator may observe very large leaks, over some detection threshold, then must decide which wells to audit.
-Only wells that are audited and leaking are assessed a fee.
-This policy is a generalization of policy~\ref{policy-target-e}a, which was the same but without a significant detection threshold.
-
-Figure~\ref{fig:game-tree-target-e-censor} has a game tree for the regulator's problem.
-Each well operator knows whether they're on the left branch (large~\(e_i\)) or right branch (small~\(e_i\)), since \(e_i\) is not a choice variable.
-The dashed oval indicates the regulator's information set---they cannot tell whether a well pad has a large \(e_i\) and isn't leaking, a small \(e_i\) and isn't leaking, or a small \(e_i\) and is leaking.
-
-\begin{figure}[!hbt]
-\import{individual_figures/}{game_tree_target_e_censor.tex}
-
-
-\begin{minipage}{0.95\textwidth}
-
-\begin{justify}
-{\small
-In this figure, nature determines the well's potential leak size, \(e_i\).
-It is not a choice variable.
-The well operator knows \(e_i\); the regulator can only form expectations.
-The well operator chooses their probability of not having a leak, \(q_i\).
-If a leak happens at a large well, it is detected.
-If a leak happens at a small well, it is not.
-If a leaking well pad is audited, it pays \(\tau e_i\).
-The dashed oval indicates the regulator's information set.
-}
-\end{justify}
-\end{minipage}
-\end{figure}
-
-
-
-The regulator sets audit probabilities based on whether the leakage is detected, taking
-the detection threshold into account.
-As the game tree suggests, if a well pad is \textit{not} detected with leakage, there is no way to distinguish between whether it is actually not leaking or the leakage is small.
-As a result, the regulator can only specify an audit probability \(r_i(X_i)\) for a well pad \(i\) with detected leakage and an audit probability \(s_i(X_i)\) for a well pad with \textit{no} detected leakage (the covariates \(X\) included in the brackets means the \(r,s\) can depend on these covariates).
-
-A well operator's response to this policy will depend on their \(e_i\).
-For small-\(e\) wells, their response is straightforward; because they know they will always be audited with probability \(s_i\), the \gls{DWL} will be \(\text{\gls{DWL}}_i(s_i)\).
-But for large wells, the incentives are more complicated.
-A large well pad \(i\) will have \(q_i\) probability of \textit{not} leaking.
-But even when it is not leaking, it will be audited with probability \(s_i(X_i)\).
-Since it is not leaking, the audit will not lead to any penalty
-(the auditing effort is wasted here).
-Large-\(e\) wells will not care about \(s_i\).
-\(q_i\) and \(\text{\gls{DWL}}_i\) will be functions that depend only on \(r_i\).
-The \textit{ex-ante} \gls{DWL} for a large-\(e\) well pad will be
-\(\text{\gls{DWL}}_i(r_i)\).
-
-The budget is similar to the case with no detection threshold.
-As with the \gls{DWL}, it's the probability of being audited \emph{when leaking} that matters to the well operator, so the large-\(e\) wells choose \(q_i(r_i)\) (\(s_i\) does not enter).
-Unlike the previous cases, large-\(e\) wells now have some \(s_i\) probability of being audited when not leaking.
-Therefore, the audit costs are \((1 - q_i(r_i)) r_i + q_i(r_i) s_i\) for each large-\(e\) well, and \(s_i\) for each small-\(e\) well.
-
-Given these \gls{DWL} and budget components, the regulator needs to pick \(r_i\) and \(s_i\).
-The regulator still does not know which wells are large-\(e\) or small-\(e\), so optimizes a weighted average, where the weights are the probability the well's leak is above the threshold.
-For a detection threshold \(\underline{e}\), define
-\(z_i \equiv \Pr(e > \underline{e} \mid X_i)\).
-The regulator then optimizes the problem:
-\begin{align*}
-\min_{
-\{r_i\}_{i = 1} ^ N, \{s_i\}_{i = 1} ^ N
-} \quad &
-\sum_i
-z_i  \text{DWL}_i(r_i) +
-(1 - z_i ) \text{DWL}_i(s_i)\\
-&\textit{s.t. }
-\sum_i
-z_i [(1 - q_i(r_i)) r_i + q_i(r_i) s_i] +
-(1 - z_i) s_i
-\leq M\\
-&\forall i: r_i \in [0, 1], s_i \in [0, 1]
-\end{align*}
-We can compare this minimization problem with the previous one, where \(\underline{e} = 0\), to confirm that the previous problem was a special case of this one.
-In the previous problem, \(z_i\) converges to 1, so we do not need to worry about \(s_i\) in the objective function.
-Moreover, in the budget constraint, \(s_i\) should be set to zero to save audit effort.
-Lowering the detection threshold leads to a lower \gls{DWL}.
-
-
-\newpage
-\section{Methane Measurement}
-\label{app:methane-measurement}
-
-\begin{figure}[!hbtp]
-\caption{Production segment is responsible for 58\% of leaks from natural gas supply chain}
-\vspace*{1\baselineskip}
-
-\label{fig:EPA-leak-percentages-Marks}
-
-\includegraphics[width=\textwidth]{natural_gas_leakage_percentages_marks_fig1}
-
-\textsc{Source:} \textcite{Marks:2021} figure~1, from estimates in \textcite{Alvarez/etal:2018}.
-Excludes end-use leaks.
-\end{figure}
-
-\begin{table}[!bth]
-\centering
-\import{individual_figures/}{Cusworth_etal_2019_table2.tex}
-\end{table}
-
-
-
-\begin{figure}[!bth]
-\caption{Distribution of detected methane leaks, comparison with ground-based measurement}
-\label{fig:app-leak-sizes}
-\includegraphics[width=0.49\textwidth]{leak_comparison_sizes}
-\includegraphics[width=0.49\textwidth]{leak_comparison_fraction_with_detections}
-
-\textsc{Left:} emissions conditional on detection.
-\textsc{Right:} fraction of well pads with detected emissions.
-The ``ground cens at'' columns are the ground studies' observations with artificial censoring applied, at either 5~or 10~kg/hr, the approximate detection threshold of both the California and Four Corners studies.
-Without artificial censoring, the ground-based measurements are non-zero approximately 97\% of the time.
-% Unrounded: 96.73913%
-5~kg/hr is noted with a dashed line in the left plot.
-
-\textsc{Sources:}
-Ground studies include measurements primarily from
-\textcite{Robertson/Edie/Snare/Soltis/Field/Burkhart/Bell/Zimmerle/Murphy:2017}
-with additional contributions from
-\textcite{
-Rella/Tsai/Botkin/Crosson/Steele:2015,
-Omara/Sullivan/Li/Subramanian/Robinson/Presto:2016,
-Omara/Zimmerman/Sullivan/Li/Ellis/Cesa/Subramanian/Presto/Robinson:2018,
-}.
-
-California and Four Corners distributions come from aircraft studies \parencite{Duren/etal:2019, Frankenberg/etal:2016}.
-\textcite{Lyon/Alvarez/Zavala-Araiza/Brandt/Jackson/Hamburg:2016}
-provides information about leak prevalence (with a detection threshold roughly similar to the California and Four Corners studies), but not leak size.
-\end{figure}
-
-
-
-\begin{table}[!bth] % \ref{tab:covariate-balance-comparison}
-\import{individual_figures/}{covariate_balance_comparison_detect_leak.tex}
-\end{table}
-
-
-\begin{figure}[!hbt] % \ref{fig:frankenberg-measurement-figs}
-\import{individual_figures/}{frankenberg_measurement_figs.tex}
-\end{figure}
-
-
-\begin{figure}[!hbt] % \ref{fig:nat-gas-price-timeseries}
-\import{individual_figures/}{nat_gas_price_timeseries.tex}
-\end{figure}
-
-
-\begin{figure}[!hbt] % \ref{fig:nat-gas-price-timeseries}
-\caption{Matched natural gas prices exhibit little variation}
-\label{fig:nat-gas-price-histogram}
-\includegraphics[width=\textwidth]{nat_gas_price_histogram.pdf}
-\end{figure}
-
-
-
-\ifthenelse{\boolean{endfloat}}{}{\FloatBarrier} % add a \FloatBarrier if not using endfloat
-
-
-\newpage
-
-\section{Distribution Fitting}
-\label{app:distribution-fitting}
-
-\subsection{Model Priors}
-\label{sec:model-priors}
-
-We employ a fully Bayesian model, including priors on the parameters we estimate.
-As noted in the main text, we choose priors that are very weakly informative on the outcome scale.
-Specifically, we chose priors with mean zero and a standard deviation large enough that the predicted value of the outcomes \(e_i\) and \(q_i\) could take any reasonable value.
-For \(e_i\), reasonable values are up to perhaps 100~times larger than the largest leak we see.
-For \(q_i\), we aimed for a roughly uniform prior distribution by choosing priors of its underlying parameters.
-The prior standard deviations are much smaller here;
-because of the logit transformation, making the prior standard deviations larger would put a lot of prior weight on probabilities near zero or one
-(see \cite{Gelman/etal:2020} for much more discussion).
-We use a Student's \(t\) distribution with three degrees of freedom to allow for somewhat more weight in the distributions' tails than the Normal.
-Specifically, we de-mean all of the \(X\) variables and use priors of
-\(\text{generalized Student's } t(3, 0, 3)\) for each of the leak size parameters \(\beta\) and \(\sigma\).
-We use \(\text{Normal}(0, 0.5)\) for the \(A_i\) coefficients \((\psi)\) and
-\(\text{Normal}(0, 0.75)\) for the \(\alpha_i\) coefficients \((\phi)\).
-While these seem like fairly narrow priors on first glance, these values lead to diffuse priors of the \(A_i\) and \(\alpha_i\).
-After the inverse logit transformations described above, the priors on \((\psi)\) and \((\phi)\) are compatible with a wide range of values of  \(A_i\) and \(\alpha_i\).
-The prior covariance between coefficients are all zero.
-
-\subsection{Estimated Parameters}
-\begin{table}[!bthp] % tab:model-param
-\vspace*{-0.5\baselineskip}
-\centering
-\import{individual_figures/}{model_parameters.tex}
-\end{table}
-
-
-\begin{figure}[!bthp]
-  \caption{Abatement elasticity \(-\hat{\alpha}_i\)}
-  \label{fig:histogram-alphas}
-  \includegraphics[width=0.99\textwidth]{model_cost_alpha_histogram}
-
-Fitted values for \(\alpha_i\) from equation~\ref{eqn:alpha-fitted}.
-Plot shows the distribution across wells, plotting the mean of across \gls{MCMC} draws of each \(\hat{\alpha_i}\).
-Values are winsorized at the 99th percentile.
-See discussion in section~\ref{sec:fitted-values}.
-\end{figure}
-
-
-
-\ifthenelse{\boolean{endfloat}}{}{\FloatBarrier} % add a \FloatBarrier if not using endfloat
-
-
-
-\newpage
-\section{Alternative Presentations of Policy Simulation Output}
-\label{app:tabular-policy-output}
-
-This section provides tabular versions of figures~\ref{fig:expected-fee-1pct} and \ref{fig:policy-outcomes-1pct}.
-Please see those figures and the discussions in sections
-\ref{sec:audit-probabilities-and-expected-fees} and
-\ref{sec:dwl-and-emissions} for more description.
-In these tables, bracketed values indicate 95\% \gls{CI}.
-
-% \ref{tab:expected-fee-1pct}
-\import{individual_figures/}{expected_fee_1pct_app_table.tex}
-
-
-% \ref{tab:dwl-emis-1pct}
-\import{individual_figures/}{policy_outcomes_dwl_emis_app_table_frac=1pct.tex}
-
-
-\begin{figure}[!bthp]
-  \caption{Curvature of \gls{DWL} and Emission Outcomes}
-  \label{fig:policy-outcomes-1pct-cardinal}
-  \includegraphics[width=\textwidth]{outcomes_dwl_emis_frac=1pct_cardinal}
-
-This graph presents a version of the main-text figure~\ref{fig:policy-outcomes-1pct}, with x-axis values plotted on a cardinal scale, allowing the reader to have a better sense of the curvature of the \gls{DWL} and emissions outcomes at different fee levels.
-This plot excludes the case of \(\tau \times T = \text{low} \times \text{3 months}\) for better visualization, as this case is fairly close to \(\tau \times T = \text{med} \times \text{1 week}\).
-The plot includes two additional x-axis values, at \(\tau \times T = \) 2500 and 7500, chosen to improve coverage over the x-axis domain.
-We present these additional points, rather than a smoother curve, because the computing required for each x-axis value is time-consuming.
-\end{figure}
-
-\ifthenelse{\boolean{endfloat}}{}{\FloatBarrier} % add a \FloatBarrier if not using endfloat
-
-
-\newpage
-\section{Drilling Response Details}
-\label{app:drilling-response-details}
-
-The main text considered the abatement behavior in a fixed population of wells.
-However, charging additional fees and increasing abatement costs will make it less profitable to operate a well, and in equilibrium we expect the number of new wells drilled to decline.
-This effect ends up being small relative to the per-well abatement.
-
-First, we convert our methane leak fees into their approximate equivalent reduction in well profit from a change in prices.
-Briefly, we total the well's expected fee payments and abatement costs, and find the change in commodity price that would result in an equivalent change to well profit, assuming the production quantity is unchanged.
-Once we've calculated this price-equivalent change, we borrow supply and demand elasticities from the literature to estimate the change in drilling.
-Both the profit-equivalent price change
-(\import{tex_fragments/}{OUTCOME=net_private_cost_per_mcf_pct_price_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex}\%)
-and the elasticity of drilling (0.36) are small, so this margin does not substantially affect our conclusions.
-
-This calculation requires stronger assumptions than we applied in the main text.
-We consider the extensive margin: wells that face some fee for their emissions will see lower profits, all else equal, than wells that face no fees.
-Therefore, fewer wells will be drilled.
-It is unlikely that existing wells will stop producing, or that wells will change the amount they produce \parencite{Anderson/Kellogg/Salant:2018}.
-To keep things simple, we assume that there's no change in the composition of wells drilled.
-
-To estimate an approximate drilling response, we first translate our expected fees into profit-equivalent changes in the price of natural gas, then we use estimates from the literature of the elasticity of drilling with respect to price.
-Further, we assume that a well's cost of drilling does not change in this scenario, except for the cost of abatement.
-We also assume that the policy does not lead to any change in the commodity price of natural gas.
-
-To define some notation, say that without any methane policy a well operator spends \(D\) to drill a well, and implement the privately optimal level of abatement.
-They earn \(E p_0\) revenue on the well's operation.
-Here we elide complications like prices changing over time, uncertainty, and discounting.%
-\footnote{%
-Here we rely on a martingale price assumption, that today's price is the best guess for tomorrow's price.
-Ignoring discounting is less of a problem than it would seem because we consider a change in price that applies to every future period, just as the expected change in profits applies in every future period.
-}
-With under an audit policy, they still spend \(D\) to drill the well, but now they also spend an additional \(C\) on abatement and \(F\) on expected fees.
-Revenue is now \((E + \epsilon) p_0\), since some additional gas may be captured.
-We define the profit-equivalent price change as the (lower) price that would result in the same profit the well would earn under the no-policy case.
-The profit-equivalent price change is:
-\[
-\Delta p = \frac{C + F - \epsilon p_0}{E}
-\]
-For this calculation, we consider considering (\ref{policy-target-e}b), which uses remote measurements to target leaks and a realistic detection threshold.
-Using the highest fee we considered (\(\tau = 2\delta\) and \(T\) = 3 months),
-we find the production-weighted average price-equivalent is
-\import{tex_fragments/}{OUTCOME=net_private_cost_per_mcf_pct_price_RULE=target_e_high_FRAC=1pct_tauT=high-3month.tex}\%
-of the wholesale prices in our sample (which are approx. \$2.90--3.90).
-
-For the price elasticity of drilling we rely on \textcite{Gilbert/Roberts:2020}, which calculates that the production-weighted long run elasticity of gas drilling with respect to the Henry Hub gas price is about 0.36 for all onshore drilling in the continental US, or 0.93 for their five-basin focus.
-\footnote{%
-In table 6 of that paper, the authors report the continental US short-run elasticity of 0.17 (s.e. 0.096), with the coefficient on the lagged dependent variable of 0.53 (s.e. 0.96).
-We calculate the approximate long-run elasticity as 0.36 (\hbox{= 0.17 / (1 \(-\) 0.53)}).
-}
-
-Combining these, we come to the conclusion presented in the main text.
-Even a high-fee policy would see at most a 5--10\% reduction in new (production weighted) drilling, and therefore the changes in expected emissions from this margin are small.
-
-\section{Robustness to Alternative Sets of Variables}
-\label{app:robustness-to-alternative-sets-of-variables}
-
-As a robustness check of our specification, we run our analysis for the fee scenario of \(\tau \times T = \delta \times \text{3 months}\) using all subsets of our preferred set with at least two variables (56~specifications), plus combinations that use sub-basin fixed effects and inverse hyperbolic sine number of wells within 10~km (3~specifications \footnote{(1) our main
-specification with basin dummies replaced by sub-basin cluster dummies, (2) our main
-specification plus the number of wells within 10 km, and (3) both.}).
-
-
-The sub-basin fixed effects are modeled by \gls{DBSCAN}, an unsupervised learning technique that assigns well pads to clusters and outliers.
-\gls{DBSCAN} works by identifying clusters as regions of high density that are separated by regions of low density.
-In contrast to counting the number of wells within a fixed radius, \gls{DBSCAN} can handle irregular geographic distributions of wells.
-We used geospatial coordinates to cluster, and selected \gls{DBSCAN} parameters to provide subjectively reasonable-looking cluster patterns.
-We end up with four clusters in the densely drilled San Joaquin basin, six in the rest of California, and one large cluster in the San Juan basin.
-When we use these fixed effects in the regressions, we include one fixed effect level per cluster, and one level for each basin's outliers.
-By including the sub-basin fixed effects and/or the number of wells within 10 km, our aim is to control for the well density information that was not accounted for in our preferred specification.
-
-In figure~\ref{fig:robustness-reg-spec}, the preferred specification is in black and the other specifications are in gray.
-The points for the preferred specification are qualitatively similar to the others. There are a few features to note here.
-The range across specifications is quite narrow: roughly 10 percentage points from the lowest to the highest.
-The confidence intervals here overlap substantially.
-From these features, we conclude that our takeaways do not depend dramatically on the particular specification choice, at least among the variables included.
-
-
-
-\begin{figure}[!bthp]
-  \caption{Comparison across specifications}
-  \label{fig:robustness-reg-spec}
-  \includegraphics[width=\textwidth]{robustness_audit_result_dwl_rule=target_e_high_frac=1pct_tauT=med-3month}
-  \includegraphics[width=\textwidth]{robustness_audit_result_emission_rule=target_e_high_frac=1pct_tauT=med-3month}
-
-The top and bottom panels plot the change in \gls{DWL} and emissions for the case of \(\tau \times T = \delta \times \text{3 months}\).
-The black point is our preferred specification
-(see variables in table~\ref{tab:model-param}).
-The gray points are alternative specifications, described in in appendix section~\ref{app:robustness-to-alternative-sets-of-variables}.
-Bars indicate 95\% \gls{CI}.
-To save computation resources, both the estimates and the confidence intervals are derived from standard \gls{MCMC} values, as opposed to the more computationally intensive BayesBag procedure employed in the main results of the paper.
-These non-bootstrapped CIs are qualitatively similar to, and are slightly larger than, the bootstrapped CIs reported in figure~\ref{fig:policy-outcomes-1pct}.
-\end{figure}
-
-
-% Cites from the appendix:
-% \printbibliography[heading=subbibliography, title={Appendix Citations}]
-\end{refsection}
-
-\newpage
-
-\begin{refsection}[software_cites_r.bib,software_cites_python.bib]
-\begin{RaggedRight}
-\singlespacing
-\twocolumn
-\nocite{*}
-\printbibliography[heading=subbibliography, title={Software Citations}]
-\end{RaggedRight}
-\end{refsection}
 \end{document}

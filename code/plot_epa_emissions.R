@@ -1,4 +1,7 @@
 library(ggplot2)
+# Note that ggpattern doesn't work (easily) without library
+# https://github.com/trevorld/ggpattern/issues/50
+library(ggpattern)
 options(warn=2)
 
 suppressMessages(
@@ -96,7 +99,6 @@ make_plots <- function(df_list) {
     dplyr::filter(year == 2015) %>%
     dplyr::select(-year)
 
-
   non_ch4_2015 <- df_list$epa_emiss_total %>%
     ensure_id_vars(year) %>%
     dplyr::filter(year == 2015) %>%
@@ -133,46 +135,59 @@ make_plots <- function(df_list) {
   message("Corrected total: O&G is ", corrected_og_total_emiss_pct, "% of total methane emissions")
   message("Corrected segment: O&G upstream prod is ", corrected_og_prod_emiss_pct, "% of total methane emissions")
 
-  plt_ch4_2015 <- dplyr::mutate(ch4_2015, x_axis = "EPA GHGI for 2015") %>%
+  plt_ch4_2015 <- dplyr::mutate(ch4_2015, x_axis = "EPA GHGI\nfor 2015") %>%
     dplyr::bind_rows(ch4_2015_corrected) %>%
     dplyr::filter(source_coarse != "Total CH4") %>%
     dplyr::mutate(
-      x_axis = factor(x_axis, levels=c("EPA GHGI for 2015", "Corrected O&G\n(Alvarez et al. 2018)")),
+      x_axis = factor(x_axis, levels=c("EPA GHGI\nfor 2015", "Corrected O&G\n(Alvarez et al. 2018)")),
       source_coarse = factor(source_coarse, levels=rev(col_ordering)),
     ) %>%
-    ggplot2::ggplot(ggplot2::aes(x=x_axis, y=mmt_co2e, fill=source_coarse)) +
-    ggplot2::geom_col(alpha=0.8, color = "black") + # border color
-    ggplot2::geom_text(ggplot2::aes(label=source_coarse), position="stack", vjust = 1.6) +
-    ggplot2::scale_fill_brewer(palette="Dark2", guide="none") +
+    ggplot2::ggplot(ggplot2::aes(x=x_axis, y=mmt_co2e)) + #, fill=source_coarse)) +
+    ggpattern::geom_col_pattern(
+      ggplot2::aes(
+        pattern = source_coarse,
+        pattern_shape = source_coarse,
+        pattern_spacing = source_coarse,
+        pattern_angle = source_coarse
+      ),
+      fill            = 'white',
+      pattern_fill    = "white",
+      colour          = 'black',
+      pattern_colour  = 'black',
+      pattern_grid = "hex",
+      pattern_size = 0.2, # line width
+    ) +
+    ggpattern::scale_pattern_manual(values=c('stripe', 'pch', 'stripe', 'pch')) +
+    ggpattern::scale_pattern_shape_manual(values=c(0, 20, 0, 3)) +
+    ggpattern::scale_pattern_spacing_manual(values = c( 0.1, 0.08, 0.03, 0.04)) +
+    ggpattern::scale_pattern_angle_manual(values = c(30, 0, 150, 0)) +
+    ggplot2::guides(pattern = ggplot2::guide_legend(nrow=2,byrow=FALSE)) +
     ggplot2::theme_bw() +
-    ggplot2::labs(x="", y="MMT CO2e", fill="") +
+    ggplot2::labs(x="", y="MMT CO2e", fill="", pattern="", pattern_angle="", pattern_spacing="", pattern_shape="") +
     ggplot2::theme(
       panel.background = ggplot2::element_rect(fill = "transparent", color = NA),
       plot.background = ggplot2::element_rect(fill = "transparent", color = NA),
+      legend.position = "bottom",
+      legend.box.spacing = ggplot2::unit(-10, "pt"),
       legend.background = ggplot2::element_rect(fill = "transparent", color = NA),
       legend.box.background = ggplot2::element_rect(fill = "transparent", color = NA)
     )
 
-  plt_ghg_2015 <- dplyr::bind_rows(ch4_2015, non_ch4_2015) %>%
-    dplyr::mutate(source_coarse = factor(source_coarse, levels=col_ordering)) %>%
-    ggplot2::ggplot(ggplot2::aes(x=source_coarse, y=mmt_co2e)) +
-    ggplot2::geom_col() +
-    ggplot2::theme_bw() +
-    ggplot2::labs(x="", y="MMT CO2e")
+  save_plot(
+    plt_ch4_2015,
+    here::here("graphics/figure01_epa_emiss_2015_ch4.pdf"),
+    # apply atypical aspect ratio (save_plot would typically save a plot that
+    # is 6.3 inches wide and 3.54 inches tall)
+    scale_mult = c(3.15 / 6.3, 3.54 / 3.54)
+  )
 
-  tf1 <- tempfile(fileext=".pdf")
-  ggplot2::ggsave(
-    filename=tf1,
-    plot=plt_ch4_2015,
-    device = grDevices::cairo_pdf,
-    width = 3.15, height = 3.54, units="in"
-  )
-  reset_datestamp(
-    tf1,
-    here::here("graphics/epa_emiss_2015_ch4.pdf"),
-    category="pdf"
-  )
-  save_plot(plt_ghg_2015, here::here("graphics/epa_emiss_2015_ghg.pdf"), reproducible=TRUE)
+  # plt_ghg_2015 <- dplyr::bind_rows(ch4_2015, non_ch4_2015) %>%
+  #   dplyr::mutate(source_coarse = factor(source_coarse, levels=col_ordering)) %>%
+  #   ggplot2::ggplot(ggplot2::aes(x=source_coarse, y=mmt_co2e)) +
+  #   ggplot2::geom_col() +
+  #   ggplot2::theme_bw() +
+  #   ggplot2::labs(x="", y="MMT CO2e")
+  # save_plot(plt_ghg_2015, here::here("graphics/epa_emiss_2015_ghg.pdf"))
 }
 
 

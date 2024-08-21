@@ -1,0 +1,299 @@
+
+
+\documentclass[12pt,oneside,letterpaper]{article}
+
+\nonstopmode
+
+% Set a better default text area (note: don't use this and geometry at the same time.)
+% \usepackage[DIV=10]{typearea}
+\usepackage[margin=1.5in]{geometry}
+\usepackage{fontspec}
+\defaultfontfeatures{Ligatures=TeX}
+\usepackage{amsmath}  % must be loaded before unicode-math
+\usepackage{amsthm}
+% Libertinus code suggested by https://tex.stackexchange.com/a/364502
+\usepackage[
+    math-style=ISO,
+    bold-style=ISO,
+    partial=upright,
+    nabla=upright
+]{unicode-math}
+\setmainfont[Numbers={OldStyle, Proportional}]{Libertinus Serif}
+\setsansfont{Libertinus Sans}
+\setmathfont{Libertinus Math}
+\newfontface\titlefont{Libertinus Serif Display}[Numbers={OldStyle, Proportional}, Fractions=Off,Ligatures=Common]
+\newfontface\textfracfont{Libertinus Serif}[Numbers={OldStyle, Proportional}, Fractions=On]
+\newfontface\tabularoldstylefont{Libertinus Serif}[Numbers={OldStyle, Monospaced}, Fractions=Off]
+
+\usepackage{csquotes}
+\usepackage[final]{microtype}
+\frenchspacing{}
+\microtypecontext{spacing=french}
+
+\usepackage{ragged2e}  % allow for ragged-right with hyphenation
+
+% Format sections:
+% \titleformat{command}[shape]{format}{label}{sep}{before-code}[after-code]
+\usepackage[it, small]{titlesec}
+
+% Format itemized lists
+\usepackage{enumitem}
+\setlist{nolistsep} % more aggressive than noitemsep
+
+% allow page breaks in math equations
+\allowdisplaybreaks
+
+\newcounter{axiomcounter}
+\newcounter{theoremcounter}
+\newcounter{examplecounter}
+\newcounter{propositioncounter}
+\newcounter{lemmacounter}
+\newcounter{corollarycounter}
+
+% Make it easier to change the spacing around these math environments
+\newlength{\premathenv}
+\setlength{\premathenv}{0.2\baselineskip}
+\newlength{\withinmathenv}
+\setlength{\withinmathenv}{0\baselineskip}
+\newlength{\postmathenv}
+\setlength{\postmathenv}{\premathenv} % default to the same, but could change.
+
+
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\length}[1]{\left\lvert#1\right\rvert}
+
+\theoremstyle{definition}
+\newenvironment{theorem}[1]{%
+\vspace{\premathenv}%
+\refstepcounter{theoremcounter}%
+\noindent\textbf{Theorem \thetheoremcounter}
+{#1}
+\vspace{\withinmathenv}
+}{% end of beginning of environment, beginning of end of env
+\vspace{\postmathenv}%
+}
+\newenvironment{proposition}[1]{%
+\vspace{\premathenv}%
+\refstepcounter{propositioncounter}%
+\noindent\textbf{Proposition \thepropositioncounter}
+{#1}
+\vspace{\withinmathenv}
+}{% end of beginning of environment, beginning of end of env
+\vspace{\postmathenv}%%
+}
+\newenvironment{lemma}[1]{%
+\vspace{\premathenv}%
+\refstepcounter{lemmacounter}%
+\noindent\textbf{Lemma \thelemmacounter}
+{#1}
+\vspace{\withinmathenv}
+}{% end of beginning of environment, beginning of end of env
+\vspace{\postmathenv}%
+}
+\newenvironment{corollary}[1]{%
+\vspace{\premathenv}%
+\refstepcounter{corollarycounter}%
+\noindent\textbf{Corollary \thecorollarycounter}
+{#1}
+\vspace{\withinmathenv}
+}{% end of beginning of environment, beginning of end of env
+\vspace{\postmathenv}%
+}
+\newenvironment{axiom}[1]{%
+\vspace{\premathenv}%
+\refstepcounter{axiomcounter}%
+\noindent\textbf{Axiom \theaxiomcounter}
+{#1}
+\vspace{\withinmathenv}
+}{% end of beginning of environment, beginning of end of env
+\vspace{\postmathenv}%
+}
+\newenvironment{example}[1]{%
+\vspace{\premathenv}%
+\refstepcounter{examplecounter}%
+\noindent\textbf{EXAMPLE \theexamplecounter}
+{#1}
+\vspace{\withinmathenv}
+}{% end of beginning of environment, beginning of end of env
+\vspace{\postmathenv}%
+}
+
+\renewenvironment{proof}{%
+\vspace{\premathenv}% previously \vspace{1\baselineskip}
+\noindent{\textit{Proof:} }
+}{% end of beginning of environment, beginning of end of env
+\qed
+\vspace{\postmathenv}% previously \vspace{1\baselineskip}
+}
+\newtheorem{case}{Case}
+\renewcommand*{\thecase}{\Alph{case}}
+\newtheorem{assumption}{Assumption}
+\renewcommand*{\theassumption}{\Alph{assumption}}
+
+\def\equationautorefname~#1\null{(#1)\null}
+
+\newcounter{auditpolicy}
+\setcounter{auditpolicy}{-1}
+\newenvironment{auditpolicy}[1]{%
+\refstepcounter{auditpolicy}%
+{\tabularoldstylefont(\theauditpolicy)}~#1%
+}
+
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\lhead{}
+\chead{}
+\rhead{}
+\lfoot{}
+\cfoot{}
+\rfoot{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\usepackage{xcolor}
+
+% Redefine \left and \right with better spacing
+\usepackage{mleftright}
+\mleftright{}
+
+% Define \expected and \indicator commands
+\DeclareMathOperator{\blackboardE}{\mathbb{E}}
+\newcommand{\expected}[1]{\blackboardE\left[#1\right]}
+\newcommand{\indicator}[1]{\symbf{1}\left[#1\right]}
+
+
+
+\usepackage{rotating} % provide the sidewaysfigure environment
+
+% Set up tables
+\usepackage[online,flushleft]{threeparttable}
+\usepackage{dcolumn}
+\newcolumntype{d}{D{@}{\hspace{0pt}}{4}}
+\newcommand{\textcol}[1]{\multicolumn{1}{c}{#1}}
+
+% \usepackage{sparklines}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{booktabs}
+
+% Bibliography
+\usepackage[
+  authordate,
+  isbn=false,
+  backend=bibtex,
+  autopunct=true,
+  uniquename=false
+  % backref=true
+]{biblatex-chicago}
+\renewcommand*{\bibfont}{\small}
+\addbibresource{refs.bib}
+\addbibresource{data_cites.bib}
+\addbibresource{methane_measurement_refs.bib}
+
+% use the \ce{} command for chemistry expressions like \ce{CO2}
+\usepackage[version=4]{mhchem}
+
+\usepackage{nameref}
+
+% Set up a boolean so we can easily turn endfloat on and off.
+% To turn on, change to \togglefalse{endfloat}
+\newtoggle{endfloat}
+\togglefalse{endfloat}
+\iftoggle{endfloat}{%
+  \usepackage{endfloat}
+  % stopendfloat from putting everything on separate pages
+  \renewcommand{\efloatseparator}{\mbox{}}
+}{ % else :
+  \usepackage{placeins} % provide \FloatBarrier command
+}
+
+% Define a boolean for whether we'll use the xr package.
+\newtoggle{usexr}
+
+\usepackage{graphicx}
+\graphicspath{{../graphics/}}
+\usepackage{import} % better relative import paths
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usepackage{wrapfig} % provides wrapfigure and wraptable environments
+
+
+% Define a command \blfootnote (blind foodnote or blank footnote)
+% Redefine \thefootnote to remove the symbol
+% Redefine \@makefntext to try to mimic the biblatex-chicago option footmarkoff, but only for the scope of this command.
+% Then reset the counter.
+\makeatletter
+\newcommand{\blfootnote}[1]{%
+  \begingroup
+  \renewcommand{\thefootnote}{}%
+  \renewcommand{\@makefntext}{}%
+  \footnote{#1}%
+  \addtocounter{footnote}{-1}%
+  \endgroup
+}
+\makeatother
+
+
+% Add an orcid logo:
+% Borrowed partly from https://tex.stackexchange.com/a/445583
+% And downloaded graphic from
+% https://figshare.com/articles/ORCID_iD_icon_graphics/5008697
+\usepackage{scalerel}
+\newcommand\orcidicon[1]{\href{https://orcid.org/#1}{\mbox{\scalerel*{
+\includegraphics{ORCIDiD_iconvector.pdf}
+}{|}}}}
+
+
+% Run texcount shell command and input result. Requires shell escape (or restricted shell escape) and associated security warnings
+% The -merge option includes counts for any \input{}-ed files.
+%\usepackage{shellesc}
+%\newcommand{\wordcount}[1]{%
+%\input|"texcount -1 -sum -merge -q #1.tex"%
+%}
+
+
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{footmisc} % must be loaded before hyperref; allows references to footnotes.
+
+\usepackage{url} % better URL line breaks.
+% Ensure more achievable output (font embedding etc.) but see the docs about
+% what it takes to be PDF/A-3b compliant.
+% \usepackage[a-3b]{pdfx}
+
+
+
+% Make hyperref happy. https://tex.stackexchange.com/a/256677
+\providecommand*\propositioncounterautorefname{proposition}
+
+\widowpenalty 9999
+\predisplaypenalty=0 % lower than default 10000
+
+
+%----Helper code for dealing with external references----
+% (by cyberSingularity at http://tex.stackexchange.com/a/69832/226)
+% https://www.overleaf.com/learn/how-to/Cross_referencing_with_the_xr_package_in_Overleaf
+
+\makeatletter
+
+\newcommand*{\addFileDependency}[1]{% argument=file name and extension
+\typeout{(#1)}% latexmk will find this if $recorder=0
+% however, in that case, it will ignore #1 if it is a .aux or
+% .pdf file etc and it exists! If it doesn't exist, it will appear
+% in the list of dependents regardless)
+%
+% Write the following if you want it to appear in \listfiles
+% --- although not really necessary and latexmk doesn't use this
+%
+\@addtofilelist{#1}
+%
+% latexmk will find this message if #1 doesn't exist (yet)
+\IfFileExists{#1}{}{\typeout{No file #1.}}
+}\makeatother
+
+\newcommand*{\myexternaldocument}[1]{%
+\externaldocument{#1}%
+\addFileDependency{#1.tex}%
+\addFileDependency{#1.aux}%
+}
+%------------End of helper code--------------
+

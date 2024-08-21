@@ -4,7 +4,7 @@ suppressMessages(
 
 source(here::here("code/shared_functions.r"))
 
-options(scipen=5, SOURCE_DATE_EPOCH=0, warn=1)
+options(scipen=5, warn=1)
 set.seed(6350) # CRS as seed? Sure.
 
 # Note on variable names:
@@ -919,7 +919,7 @@ if (!exists("snakemake")) {
       lyon_etal_2016 = "data/generated/methane_measures/lyon_etal_2016.parquet",
       ground_studies = "data/generated/methane_measures/ground_studies.parquet",
       cleaned_matched_obs = "data/generated/methane_measures/matched_wells_all.parquet",
-      aviris_match_fraction_dropped = "output/tex_fragments/aviris_match_fraction_dropped.tex"
+      aviris_match_fraction_dropped = "output/tex_fragments/intext_aviris_match_fraction_dropped.tex"
     ),
     threads = 4,
     resources = list(mem_mb = 7000),
